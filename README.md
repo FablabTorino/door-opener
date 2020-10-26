@@ -1,5 +1,11 @@
 # Door opener
-Fablab door opener made with a Wemos, RFID reader and a Telegram bot.
+Fablab door opener made with a ESP32, RFID reader and a Telegram bot.
+
+Door-opener è un semplice sistema domotico per la porta d'ingresso del Fablab.
+Il lettore NFC identifica le tessere associative dotate di tag RFID in caso l'utente sia presente nel database.
+Il bot di Telegram ha tre funzioni: accesso remoto, gestione del database e log degli accessi.
+Il database di riferimento è momentaneamente su [IO di Adafruit](https://io.adafruit.com/), in futuro sarà su un server interno al Fablab. Un backup viene fatto sulla memoria SFIPPS della ESP32.
+
 
 v0.0.1-alpha
 
