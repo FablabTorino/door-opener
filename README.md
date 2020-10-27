@@ -16,6 +16,7 @@ v0.0.1-alpha
 - [button](https://www.amazon.it/Coolais-interruttore-momentaneo-impermeabile-confezione/dp/B07L4LSXNR)
 - LED red
 - LED green
+- [Buzzer](https://www.amazon.it/ARCELI-elettronico-Magnetico-Continuo-Confezione/dp/B07RDHNT1P/)
 
 ## Software elements
 #### ESP32
@@ -26,6 +27,10 @@ Pinout
 Functions:
 
      open()
+#### Buzzer
+Functions:
+
+    on(BUZZER)
 #### NFC_Reader
 To read the TOKEN stored on Fablab card.
 
