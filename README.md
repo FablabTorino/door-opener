@@ -112,6 +112,6 @@ Save the users' DB on memory.
 
 #### Telegram bot
 
-`/open` opens the door to the next person ringing the doorbell
-`/autoopen` opens the door for every person ringing the bell in the next X minutes
-`/update` forces a cache refresh of the users' DB on the ESP32
+- `/open` opens the door to the next person ringing the doorbell
+- `/autoopen` opens the door for every person ringing the bell in the next X minutes
+- `/update` forces a cache refresh of the users' DB on the ESP32
