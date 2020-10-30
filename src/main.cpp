@@ -8,7 +8,7 @@
 #include <Arduino.h>
 
 #ifdef ENV_ESP32
-#include "wifi.h"
+#include "adafruit_io.h"
 #endif
 
 #include "nfc.h"
@@ -27,12 +27,23 @@ void setup() {
   Serial.begin(115200); // initialize the Serial
 
   #ifdef ENV_ESP32
-  initWifi();
+  initAdafruitIo();
   #endif
 
+  // temporary, NFC not working with Wemos
+  #ifndef ENV_ESP32
   initNfc();
+  #endif
 }
 
 void loop() {
+  Serial.println('.');
+  #ifdef ENV_ESP32
+  startAdafruitIo();
+  #endif
+
+  // temporary, NFC not working with Wemos
+  #ifndef ENV_ESP32
   listenForNfcCards();
+  #endif
 }
