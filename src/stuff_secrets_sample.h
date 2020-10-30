@@ -1,6 +1,7 @@
-#define SECRET_SSID ""
-#define SECRET_PASS ""
+// for AdafruitIO WiFi connection
+#define WIFI_SSID ""
+#define WIFI_PASS ""
 
-#define BOTNAME ""
-#define CHATID ""
-#define BOTTOKEN ""
+// for AdafruitIO account
+#define IO_USERNAME ""
+#define IO_KEY ""
