@@ -11,6 +11,8 @@
 #include "wifi.h"
 #endif
 
+#include "nfc.h"
+
 const int doorPin = 15; // D8
 const int internalDoorPin = 13; // D7
 int ledStatus = 0;
@@ -27,8 +29,10 @@ void setup() {
   #ifdef ENV_ESP32
   initWifi();
   #endif
+
+  initNfc();
 }
 
 void loop() {
-  
+  listenForNfcCards();
 }
