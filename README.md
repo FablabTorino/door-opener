@@ -12,7 +12,7 @@ The Telegram bot serves three purposes: remote access, database management and a
 The NFC reader and the server communicate using MQTT with [Adafruit IO](https://io.adafruit.com/).
 
 ## Hardware - v0.0.1-alpha
-- [ESP32 with OLED](https://www.amazon.it/ILS-Arduino-Bluetooth-ESP-32S-ESP8266/dp/B0769HNFTP/)
+- [ESP32](https://www.amazon.it/ILS-Arduino-Bluetooth-ESP-32S-ESP8266/dp/B0769HNFTP/)
 - [NFC reader PN532](https://www.amazon.it/ICQUANZX-Communication-Arduino-Raspberry-Android/dp/B07VT431QZ/)
 - [relay](https://www.amazon.it/ARCELI-KY-019-Channel-Module-arduino/dp/B07BVXT1ZK/)
 - [button](https://www.amazon.it/Coolais-interruttore-momentaneo-impermeabile-confezione/dp/B07L4LSXNR)
@@ -23,7 +23,7 @@ The NFC reader and the server communicate using MQTT with [Adafruit IO](https://
 #### ESP32
 Pinout 
 
-![ESP32-OLED](docs/src/ESP32-OLED-pinout.jpeg)
+![ESP32-OLED](docs/src/ESP32-pinout.jpeg)
 
 ## Software - v0.0.1-alpha
 
@@ -53,9 +53,6 @@ To read the TOKEN stored on Fablab card.
 Functions:
 - on(LED_GREEN | LED_RED)
 - off(LED_GREEN | LED_RED)
-
-#### OLED
-Another output.
 
 #### MQTT
 Publish `card_id`.
