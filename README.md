@@ -23,7 +23,7 @@ The NFC reader and the server communicate using MQTT with [Adafruit IO](https://
 #### ESP32
 Pinout 
 
-![ESP32-OLED](docs/src/ESP32-pinout.jpeg)
+![ESP32-OLED](docs/src/ESP32-pinout.png)
 
 ## Software - v0.0.1-alpha
 
