@@ -1,114 +1,52 @@
 # Door-opener
-The Fablab door opener made with a ESP32, RFID reader and a Telegram bot.
+
+## Warning! This repository is a work in progress!
 
 Door-opener is a simple domotic system to manage the Fablab's entrance door.
 
-The NFC reader identifies the associative cards which have an RFID tag embedded. If the card id is present in the database, the door is opened.
+The system consists of several parts: 
+- [esp-rfid](https://github.com/esprfid/esp-rfid/tree/dev) to manage peripherals;
+- [Eclipse Mosquitto]() as MQTT broker; 
+- [Telegram Bot](https://core.telegram.org/api) as remote user friendly interface.
 
-The NFC reader communicates with an online server that manages a users' database and a Telegram bot.
+## esp-rfid
 
-The Telegram bot serves three purposes: remote access, database management and access log.
+**esp-rfid** in an access control system using PN532 RFID reader and Espressif's ESP8266 Microcontroller. 
+The version used is the `dev`, as it supports all the MQTT commands the system needs.
+You can find more information int the [official repository](https://github.com/esprfid/esp-rfid/tree/dev).
 
-The NFC reader and the server communicate using MQTT with [Adafruit IO](https://io.adafruit.com/).
+In [cad](/cad) folder you can find the case for PN532 reader. 
 
-## Hardware - v0.0.1-alpha
-- [ESP32](https://www.amazon.it/ILS-Arduino-Bluetooth-ESP-32S-ESP8266/dp/B0769HNFTP/)
-- [NFC reader PN532](https://www.amazon.it/ICQUANZX-Communication-Arduino-Raspberry-Android/dp/B07VT431QZ/)
-- [relay](https://www.amazon.it/ARCELI-KY-019-Channel-Module-arduino/dp/B07BVXT1ZK/)
-- [button](https://www.amazon.it/Coolais-interruttore-momentaneo-impermeabile-confezione/dp/B07L4LSXNR)
-- LED red
-- LED green
-- [Buzzer](https://www.amazon.it/ARCELI-elettronico-Magnetico-Continuo-Confezione/dp/B07RDHNT1P/)
+## Eclipse Mosquitto
+Eclipse Mosquitto is an open source (EPL/EDL licensed) message broker that implements the MQTT protocol. It's installed on a Raspberry Pi 4 inside the [official Docker container](https://hub.docker.com/_/eclipse-mosquitto/).
 
-#### ESP32
-Pinout 
+### Installation
+Create directory `mosquitto` in user folder`/home/pi` and create a configuration file `mosquitto.conf` inside. 
 
-![ESP32-OLED](docs/src/ESP32-pinout.png)
+    mkdir mosquitto  
+    touch mosquitto/mosquitto.conf
 
-## Software - v0.0.1-alpha
+Copy the following text into the previously created file. 
 
-### ESP32
-The ESP 32 needs to:
-- extract the ID from the RFID card
-- check if the ID is part of a list of locally saved IDs
-- open the door
-- connect to the WiFi
+    persistence true
+    persistence_location /mosquitto/data/
+    log_dest file /mosquitto/log/mosquitto.log
 
-moreover, if it's online, it needs to:
-- communicate via MQTT the card ID to the server
-- listen to MQTT messages from the server to open the door
+Install with 
 
-#### Door
-Functions:
-- open()
+    docker run --restart always -p 1883:1883 -p 9001:9001 -v /home/pi/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf -v mosquitto_data:/mosquitto/data -v mosquitto_log:/mosquitto/log --name mosquitto eclipse-mosquitto
 
-#### Buzzer
-Functions:
-- on(BUZZER)
+You can find more information about `mosquitto.conf` in the [ufficial documentation](https://mosquitto.org/man/mosquitto-conf-5.html).
 
-#### NFC Reader
-To read the TOKEN stored on Fablab card.
+## Telegram_Bot
+The telegram bot is used to manage remote accesses in a simple and fast way. It is inserted in a specific telegram group, the only chat from which it will respond.
 
-#### LED 
-Functions:
-- on(LED_GREEN | LED_RED)
-- off(LED_GREEN | LED_RED)
+You can find it in [TelegramBot](/TelegramBot) folder.
 
-#### MQTT
-Publish `card_id`.
-
-Subscribe to `open_door`.
-
-### Server
-Every operation that needs an Internet connection will be done server sie:
-- interact with the Telegram bot
-- interact with the users DB
-- send/receiving MQTT messages with ESP32
-
-#### Telegram_Bot
-Telegram Group for Admins
 Commands:
 - `/open` opens the door
-- `/cancel` cancel what the user was doing
 
 Warning:
-- Somebody pass the card
+- Somebody pass the card on RFID reader
   - option 1: It's in the database -> Open door and send log message
   - option 2: It isn't in the database -> Ask what to do 
-
-#### MQTT
-Via [Adafruit IO](https://io.adafruit.com/) to have a simple, secure and reliable connection between the ESP32 and the server.
-
-Subscribe to `card_id`.
-
-Publish `open_door`.
-
-#### Database
-SQlite.
-
-Simple interface for data entry/review.
-
-#### User
-- id: unique identification number, the card's ID _string_
-- name: `name surname` _string_
-
-## Flowchart
-
-![Flowchart](docs/flowchart.svg)
-
-## Future ideas
-
-A users' database backup is hold on the SPIFFS memory of the ESP32, to guarantee the access to the Fablab when the Internet connection is absent.
-
-### ESP32
-
-#### SPIFFS
-Save the users' DB on memory.
-
-### Server
-
-#### Telegram bot
-
-- `/open` opens the door to the next person ringing the doorbell
-- `/autoopen` opens the door for every person ringing the bell in the next X minutes
-- `/update` forces a cache refresh of the users' DB on the ESP32
