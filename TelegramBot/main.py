@@ -13,6 +13,8 @@ from dotenv import load_dotenv
 import paho.mqtt.client as mqtt
 import logging
 import re
+import time
+from datetime import datetime
 
 logging.basicConfig(
     # format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -91,6 +93,10 @@ def callback_message(update: Update, context: CallbackContext) -> None:
     elif query.data.startswith('discard_open_'):
         query.edit_message_text(
             f'@{query.from_user.username} ha aperto alla #tessera {query.data[len("discard_open_"):]}')
+        mqttClient.publish('esp-rfid', json.dumps({
+            'cmd': 'opendoor',
+            'doorip': ESPRFID_IP
+        }))
     elif query.data.startswith('discard_cancel_'):
         query.edit_message_text(
             f'@{query.from_user.username} ha ignorato la #tessera di {query.data[len("discard_cancel_"):]}')
@@ -181,13 +187,15 @@ def add_user_prompt(query):
 
 
 def save_new_card(card_number, name_for_new_card):
+    today = datetime.today()
+    first_jan_next_year = datetime(today.year()+1, 1, 1).timestamp()
     mqttClient.publish('esp-rfid', json.dumps({
         'cmd': 'adduser',
         'doorip': ESPRFID_IP,
         'uid': card_number,
         'user': name_for_new_card,
         'acctype': 0,
-        'validuntil': 1640995200
+        'validuntil': first_jan_next_year
     }))
     # TODO save on file
 
