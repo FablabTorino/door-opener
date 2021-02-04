@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 import paho.mqtt.client as mqtt
 import logging
 import re
+import time
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -97,6 +98,10 @@ def add_user(update: Update, context: CallbackContext) -> None:
     name_for_new_card = update.message.text
     sent_from = update.message.from_user.username
     reply_to = update.message.reply_to_message
+
+    if reply_to is None:
+        return
+
     reply_to_text = reply_to.text
 
     if len(reply_to.entities) != 2:
@@ -123,18 +128,16 @@ def add_user(update: Update, context: CallbackContext) -> None:
 
 
 def save_new_card(card_number, name_for_new_card):
+    one_year_in_seconds = 60 * 60 * 24 * 365
     mqttClient.publish('esp-rfid', json.dumps({
         'cmd': 'adduser',
         'doorip': espRfidIp,
         'uid': card_number,
-        'username': name_for_new_card
+        'user': name_for_new_card,
+        'acctype': '1',
+        'validuntil': time.time() + one_year_in_seconds
     }))
     # TODO save on file
-
-
-def unmanaged_command(command):
-    dispatcher.bot.send_message(chat_id=doorOpenerChatId,
-                                text=f'#tessera presentata, ma con comando non gestito')
 
 
 def messages_callback(update: Update, context: CallbackContext) -> None:
@@ -178,14 +181,12 @@ def on_mqtt_message(client, userdata, message):
         new_card_presented(command)
     elif command.__contains__('cmd') and command['cmd'] == 'opendoor':
         pass
-    else:
-        unmanaged_command(command)
 
 
 def main() -> None:
     mqttClient.loop_start()
 
-    mqttClient.subscribe('esp-rfid')
+    mqttClient.subscribe('esp-rfid/send')
     mqttClient.on_message = on_mqtt_message
 
     dispatcher.add_handler(CommandHandler('help', help_command))
