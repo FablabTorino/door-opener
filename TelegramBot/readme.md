@@ -7,4 +7,4 @@ Fill .env
 
 For chat_id invite @RawDataBot and it will output the chat_id on invite. Then kick it out of the chat.
 
-Run `pipenv install` to install dependencies, then `pipenv shell` or `pipenv run python doorbot.py` to use the pipenv dependencies.
+Run `pipenv install` to install dependencies, then `pipenv shell` or `pipenv run python main.py` to use the pipenv dependencies.
