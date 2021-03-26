@@ -1,3 +1,4 @@
 .vscode/
 .idea/
-TelegramBot/.env
+.env
+WindDocSync/sync.json
