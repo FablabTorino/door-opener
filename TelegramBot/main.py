@@ -29,15 +29,23 @@ ESPRFID_IP = os.getenv('ESPRFID_IP')
 token = os.getenv('TOKEN')
 DOORBOT_CHAT_ID = int(os.getenv('CHAT_ID'))
 ESPRFID_MQTT_TOPIC = 'esp-rfid'
+
+def connect_to_mqtt(retries=3):
+    try:
+        mqttClient.connect(MQTT_BROKER_IP)
+        mqttClient.publish('log', "StartBot")
+    except ConnectionRefusedError as e:
+        logging.error(e)
+        if retries > 0:
+            print('waiting 5 seconds and trying again to connect to MQTT')
+            time.sleep(5)
+            connect_to_mqtt(retries-1)
+        else:
+            print('MQTT connection failed')
+            exit()
+
 mqttClient = mqtt.Client('TelegramBot')
-
-try:
-    mqttClient.connect(MQTT_BROKER_IP)
-    mqttClient.publish('log', "StartBot")
-except ConnectionRefusedError as e:
-    logging.error(e)
-    exit(30)
-
+connect_to_mqtt()
 updater = Updater(token)
 dispatcher = updater.dispatcher
 
