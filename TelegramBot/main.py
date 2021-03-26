@@ -29,11 +29,19 @@ ESPRFID_IP = os.getenv('ESPRFID_IP')
 token = os.getenv('TOKEN')
 DOORBOT_CHAT_ID = int(os.getenv('CHAT_ID'))
 ESPRFID_MQTT_TOPIC = 'esp-rfid'
+mqtt_connected = False
+
+def on_connect(client, userdata, flags, rc):
+    if rc==0:
+        mqtt_connected = True
+    else:
+        mqtt_connected = False
 
 def connect_to_mqtt(retries=3):
     try:
         mqttClient.connect(MQTT_BROKER_IP)
         mqttClient.publish('log', "StartBot")
+        mqtt_connected = True
     except ConnectionRefusedError as e:
         logging.error(e)
         if retries > 0:
@@ -41,8 +49,7 @@ def connect_to_mqtt(retries=3):
             time.sleep(5)
             connect_to_mqtt(retries-1)
         else:
-            print('MQTT connection failed')
-            exit()
+            mqtt_connected = False
 
 mqttClient = mqtt.Client('TelegramBot')
 connect_to_mqtt()
@@ -254,14 +261,6 @@ def on_mqtt_message(client, userdata, message):
 
 
 def main() -> None:
-    """ MQTT setup """
-    mqttClient.loop_start()
-    mqttClient.subscribe(ESPRFID_MQTT_TOPIC)
-    mqttClient.subscribe(ESPRFID_MQTT_TOPIC + '/send')
-    mqttClient.subscribe(ESPRFID_MQTT_TOPIC + '/sync')
-    mqttClient.subscribe(ESPRFID_MQTT_TOPIC + '/accesslist')
-    mqttClient.on_message = on_mqtt_message
-
     ''' Telegram Bot setup '''
     chat_filter = Filters.text & Filters.chat(DOORBOT_CHAT_ID)
     # /help
@@ -279,6 +278,18 @@ def main() -> None:
     # Other chat
     dispatcher.add_handler(MessageHandler(
         ~Filters.chat(DOORBOT_CHAT_ID), unknown_chat))
+
+    """ MQTT setup """
+    if mqtt_connected:
+        mqttClient.loop_start()
+        mqttClient.subscribe(ESPRFID_MQTT_TOPIC)
+        mqttClient.subscribe(ESPRFID_MQTT_TOPIC + '/send')
+        mqttClient.subscribe(ESPRFID_MQTT_TOPIC + '/sync')
+        mqttClient.subscribe(ESPRFID_MQTT_TOPIC + '/accesslist')
+        mqttClient.on_message = on_mqtt_message
+    else:
+        dispatcher.bot.send_message(chat_id=DOORBOT_CHAT_ID,
+                                text=f'La connessione al server MQTT è fallita, riavviare il bot')
 
     updater.start_polling()
     updater.idle()
