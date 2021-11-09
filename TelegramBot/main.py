@@ -9,7 +9,7 @@ from telegram.utils.helpers import escape_markdown
 import json
 import os
 from os.path import join, dirname
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 import paho.mqtt.client as mqtt
 import logging
 import re
@@ -21,8 +21,9 @@ logging.basicConfig(
     format=' %(levelname)s - %(message)s',
     level=logging.INFO)
 
-dotenv_path = join(dirname(__file__), '.env')
-load_dotenv(dotenv_path)
+# environment variables
+dotenv_path = join(os.getcwd(), dirname(__file__), '.env')
+load_dotenv(find_dotenv(dotenv_path, raise_error_if_not_found=True))
 
 MQTT_BROKER_IP = os.getenv('MQTT_BROKER_IP')
 ESPRFID_IP = os.getenv('ESPRFID_IP')
