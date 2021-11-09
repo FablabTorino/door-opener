@@ -227,25 +227,6 @@ def opendoor_mqtt():
     return mqttClient.publish(ESPRFID_MQTT_TOPIC, _payload)
 
 
-def listusr_mqtt():
-    logging.info("listusr_mqtt")
-    _payload = json.dumps({'cmd': 'opendoor', 'doorip': ESPRFID_IP})
-    return mqttClient.publish(ESPRFID_MQTT_TOPIC, _payload)
-
-
-def deletusers_mqtt():
-    logging.info("deletusers_mqtt")
-    _payload = json.dumps({'cmd': 'deletusers', 'doorip': ESPRFID_IP})
-    return mqttClient.publish(ESPRFID_MQTT_TOPIC, _payload)
-
-
-def deletuid_mqtt(uid: str):
-    logging.info("deletuid_mqtt: " + uid)
-    _payload = json.dumps(
-        {'cmd': 'deletuid', 'doorip': ESPRFID_IP, 'uid': uid})
-    return mqttClient.publish(ESPRFID_MQTT_TOPIC, _payload)
-
-
 def adduser_mqtt(uid: str, user: str, acctype: int = 0):
     logging.info("adduser_mqtt: " + uid + ' ' + user)
     end_of_the_year = datetime(datetime.now().year + 1, 1, 1).timestamp() - 59
@@ -271,7 +252,6 @@ def on_mqtt_message(client, userdata, message):
 
     if message.topic == ESPRFID_MQTT_TOPIC:  # loopback
         pass
-        # logging.warning(_i + "TOPIC '%s' non gestito", message.topic)
 
     elif message.topic == ESPRFID_MQTT_TOPIC + '/send':
         _type = _json.get('type')
@@ -340,7 +320,6 @@ def mqtt_setup():
             logging.error(e)
         attempts -= 1
         time.sleep(0.1)
-    # mqttClient.connect_async(MQTT_BROKER_IP)
     mqttClient.loop_start()
     mqttClient.subscribe(ESPRFID_MQTT_TOPIC)
     mqttClient.subscribe(ESPRFID_MQTT_TOPIC + '/send')
