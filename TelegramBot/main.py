@@ -81,20 +81,14 @@ def callback_message(update: Update, context: CallbackContext) -> None:
     if query.data == 'open_confirm':
         query.edit_message_text(
             text=f'@{query.from_user.username} ha aperto la porta da #remoto')
-        mqttClient.publish('esp-rfid', json.dumps({
-            'cmd': 'opendoor',
-            'doorip': ESPRFID_IP
-        }))
+        opendoor_mqtt()
     elif query.data == 'open_cancel':
         query.edit_message_text(
             text=f'Tentativo di @{query.message.reply_to_message.from_user.username} di aprire la porta annullato da @{query.from_user.username}')
     elif query.data.startswith('open_card'):
         query.edit_message_text(
             text=f'@{query.from_user.username} ha aperto alla #tessera {query.data[len("open_card_"):]}')
-        mqttClient.publish('esp-rfid', json.dumps({
-            'cmd': 'opendoor',
-            'doorip': ESPRFID_IP
-        }))
+        opendoor_mqtt()
     elif query.data.startswith('add_cancel'):
         query.edit_message_text(
             text=f'@{query.from_user.username} ha ignorato la #tessera {query.data[len("add_cancel_"):]}')
@@ -103,10 +97,7 @@ def callback_message(update: Update, context: CallbackContext) -> None:
     elif query.data.startswith('discard_open_'):
         query.edit_message_text(
             f'@{query.from_user.username} ha aperto alla #tessera {query.data[len("discard_open_"):]}')
-        mqttClient.publish('esp-rfid', json.dumps({
-            'cmd': 'opendoor',
-            'doorip': ESPRFID_IP
-        }))
+        opendoor_mqtt()
     elif query.data.startswith('discard_cancel_'):
         query.edit_message_text(
             f'@{query.from_user.username} ha ignorato la #tessera di {query.data[len("discard_cancel_"):]}')
@@ -200,17 +191,49 @@ def add_user_prompt(query):
 
 
 def save_new_card(card_number, name_for_new_card):
-    today = datetime.today()
-    first_jan_next_year = datetime(today.year()+1, 1, 1).timestamp()
-    mqttClient.publish('esp-rfid', json.dumps({
+    adduser_mqtt(card_number, name_for_new_card)
+    # TODO save on file
+
+
+# MQTT
+
+def opendoor_mqtt():
+    logging.info("opendoor_mqtt")
+    _payload = json.dumps({'cmd': 'opendoor', 'doorip': ESPRFID_IP})
+    return mqttClient.publish(ESPRFID_MQTT_TOPIC, _payload)
+
+
+def listusr_mqtt():
+    logging.info("listusr_mqtt")
+    _payload = json.dumps({'cmd': 'opendoor', 'doorip': ESPRFID_IP})
+    return mqttClient.publish(ESPRFID_MQTT_TOPIC, _payload)
+
+
+def deletusers_mqtt():
+    logging.info("deletusers_mqtt")
+    _payload = json.dumps({'cmd': 'deletusers', 'doorip': ESPRFID_IP})
+    return mqttClient.publish(ESPRFID_MQTT_TOPIC, _payload)
+
+
+def deletuid_mqtt(uid: str):
+    logging.info("deletuid_mqtt: " + uid)
+    _payload = json.dumps(
+        {'cmd': 'deletuid', 'doorip': ESPRFID_IP, 'uid': uid})
+    return mqttClient.publish(ESPRFID_MQTT_TOPIC, _payload)
+
+
+def adduser_mqtt(uid: str, user: str, acctype: int = 0):
+    logging.info("adduser_mqtt: " + uid + ' ' + user)
+    end_of_the_year = datetime(datetime.now().year + 1, 1, 1).timestamp() - 59
+    _payload = json.dumps({
         'cmd': 'adduser',
         'doorip': ESPRFID_IP,
-        'uid': card_number,
-        'user': name_for_new_card,
-        'acctype': 0,
-        'validuntil': first_jan_next_year
-    }))
-    # TODO save on file
+        'uid': uid,
+        'user': user,
+        'acctype': acctype,
+        'validuntil': end_of_the_year
+    })
+    return mqttClient.publish(ESPRFID_MQTT_TOPIC, _payload)
 
 
 def on_mqtt_message(client, userdata, message):
