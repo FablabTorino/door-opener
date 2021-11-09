@@ -46,6 +46,7 @@ if ESPRFID_MQTT_TOPIC is None:
 
 # MQTT setup
 mqttClient = mqtt.Client('TelegramBot')
+last_mqtt_message = time.time()
 
 # Telegram Bot setup
 updater = Updater(TOKEN_TBOT)
@@ -139,6 +140,29 @@ def text_message(update: Update, context: CallbackContext) -> None:
 def unknown_chat(update: Update, context: CallbackContext):
     dispatcher.bot.sendMessage(chat_id=update.message.chat_id,
                                text="Sorry, this bot isn't for you.")
+
+
+def tbot_setup():
+    """Telegram Bot setup"""
+    chat_filter = Filters.text & Filters.chat(CHAT_ID_TBOT)
+    # /help
+    dispatcher.add_handler(CommandHandler('help', help_command, chat_filter))
+    # /open
+    dispatcher.add_handler(CommandHandler('open', open_command, chat_filter))
+    # /[unknown command]
+    dispatcher.add_handler(MessageHandler(
+        Filters.command & chat_filter, unknown_command))
+    # Callback from Inline Keyboard
+    dispatcher.add_handler(CallbackQueryHandler(callback_message))
+    # Other messages
+    dispatcher.add_handler(MessageHandler(
+        ~Filters.command & chat_filter, text_message))
+    # Other chat
+    dispatcher.add_handler(MessageHandler(
+        ~Filters.chat(CHAT_ID_TBOT), unknown_chat))
+
+    updater.start_polling()
+    updater.idle()
 
 
 # MQTT
@@ -238,34 +262,53 @@ def adduser_mqtt(uid: str, user: str, acctype: int = 0):
 
 def on_mqtt_message(client, userdata, message):
     _i = '[MQTT] '
-    logging.info(_i + "TOPIC: '%s', PAYLOAD: '%s'", message.topic,
-                 message.payload)
+    last_mqtt_message = time.time()
+    try:
+        _json = json.loads(message.payload)
+    except BaseException as e:
+        logging.error(e)
+        return
 
-    _json = json.loads(message.payload)
     if message.topic == ESPRFID_MQTT_TOPIC:  # loopback
         pass
         # logging.warning(_i + "TOPIC '%s' non gestito", message.topic)
 
     elif message.topic == ESPRFID_MQTT_TOPIC + '/send':
         _type = _json.get('type')
+        _cmd = _json.get('cmd')
         if _type == 'access':
             _access = _json.get('access')
             _is_know = _json.get('isKnown')
             if _is_know == 'true':
                 if _access in ['Admin', 'Always']:
                     access_allowed(_json)
+                    return
                 elif _access == 'Disabled':
-                    disabled_card_presented(
-                        _json.get('username'))  # log to Bot
+                    disabled_card_presented(_json.get('username'))
+                    return
                 else:
                     logging.warning(_i + "access '%s' non gestito ", _access)
             elif _is_know == 'false':
                 new_card_presented(_json.get('uid'))
+                return
             else:
                 logging.warning(_i + "isKnow '%s' non gestito ", _is_know)
         elif _type == 'WARN':
             pass
         elif _type == 'INFO':
+            logging.info(_i + "INFO " + _json.get('src'))
+        elif _cmd == 'opendoor':
+            logging.info(_i + "opendoor")
+            return
+        elif _cmd == 'listusr':
+            pass
+        elif _cmd == 'deletusers':
+            pass
+        elif _cmd == 'deletuid':
+            pass
+        elif _cmd == 'adduser':
+            pass
+        elif _json.get('command') == 'userfile':
             pass
         else:
             logging.warning(_i + "type '%s' and cmd '%s' non gestiti",
@@ -284,8 +327,20 @@ def on_mqtt_message(client, userdata, message):
                  message.payload)
 
 
-def main() -> None:
+def mqtt_setup():
     """ MQTT setup """
+    logging.info("start MQTT setup")
+
+    attempts = 5
+    while attempts:
+        try:
+            mqttClient.connect_async(MQTT_BROKER_IP)
+            break
+        except BaseException as e:
+            logging.error(e)
+        attempts -= 1
+        time.sleep(0.1)
+    # mqttClient.connect_async(MQTT_BROKER_IP)
     mqttClient.loop_start()
     mqttClient.subscribe(ESPRFID_MQTT_TOPIC)
     mqttClient.subscribe(ESPRFID_MQTT_TOPIC + '/send')
@@ -294,26 +349,30 @@ def main() -> None:
     mqttClient.on_message = on_mqtt_message
     logging.debug("end MQTT setup")
 
-    ''' Telegram Bot setup '''
-    chat_filter = Filters.text & Filters.chat(DOORBOT_CHAT_ID)
-    # /help
-    dispatcher.add_handler(CommandHandler('help', help_command, chat_filter))
-    # /open
-    dispatcher.add_handler(CommandHandler('open', open_command, chat_filter))
-    # /[unknown command]
-    dispatcher.add_handler(MessageHandler(
-        Filters.command & chat_filter, unknown_command))
-    # Callback from Inline Keyboard
-    dispatcher.add_handler(CallbackQueryHandler(callback_message))
-    # Other messages
-    dispatcher.add_handler(MessageHandler(
-        ~Filters.command & chat_filter, text_message))
-    # Other chat
-    dispatcher.add_handler(MessageHandler(
-        ~Filters.chat(DOORBOT_CHAT_ID), unknown_chat))
 
-    updater.start_polling()
-    updater.idle()
+def main() -> None:
+    mqtt_setup()
+    tbot_setup()
+    while True:
+        try:
+            if time.time() - last_mqtt_message > 130:
+                attempts = 5
+                while attempts:
+                    try:
+                        mqttClient.connect_async(MQTT_BROKER_IP)
+                        break
+                    except BaseException as e:
+                        logging.error(e)
+                    attempts -= 1
+                    time.sleep(0.1)
+
+                mqttClient.subscribe(ESPRFID_MQTT_TOPIC)
+                mqttClient.subscribe(ESPRFID_MQTT_TOPIC + '/send')
+                mqttClient.subscribe(ESPRFID_MQTT_TOPIC + '/sync')
+                mqttClient.subscribe(ESPRFID_MQTT_TOPIC + '/accesslist')
+            time.sleep(1)
+        except KeyboardInterrupt as e:
+            exit(2)
 
 
 if __name__ == '__main__':
