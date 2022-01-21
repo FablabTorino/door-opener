@@ -9,6 +9,3 @@ verify_ssl = true
 python-telegram-bot = "*"
 python-dotenv = "*"
 paho-mqtt = "*"
-
-[requires]
-python_version = "3.6"
