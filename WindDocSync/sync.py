@@ -32,6 +32,7 @@ for u in users:
       'uid': u['cardNumber'],
       'user': u['fullName'],
       'acctype': u['accessLevel'],
+      'pincode': u['Pin'],
       'validuntil': u['validUntil']
   }))
 
