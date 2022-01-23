@@ -9,36 +9,47 @@ from telegram.utils.helpers import escape_markdown
 import json
 import os
 from os.path import join, dirname
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 import paho.mqtt.client as mqtt
 import logging
 import re
 import time
 from datetime import datetime
 
+logging_path = join(os.getcwd(), dirname(__file__), 'doorbot.log')
 logging.basicConfig(
-    # format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    format=' %(levelname)s - %(message)s',
+    filename=logging_path,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    # format=' %(levelname)s - %(message)s', # use only for debugging
     level=logging.INFO)
 
-dotenv_path = join(dirname(__file__), '.env')
-load_dotenv(dotenv_path)
+# environment variables
+dotenv_path = join(os.getcwd(), dirname(__file__), '.env')
+load_dotenv(find_dotenv(dotenv_path, raise_error_if_not_found=True))
 
 MQTT_BROKER_IP = os.getenv('MQTT_BROKER_IP')
+if MQTT_BROKER_IP is None:
+    logging.error("MQTT_BROKER_IP not set in .env")
 ESPRFID_IP = os.getenv('ESPRFID_IP')
-token = os.getenv('TOKEN')
-DOORBOT_CHAT_ID = int(os.getenv('CHAT_ID'))
+
+if ESPRFID_IP is None:
+    logging.error("ESPRFID_IP not set in .env")
+TOKEN_TBOT = os.getenv('TOKEN_TBOT')
+if TOKEN_TBOT is None:
+    logging.error("token not set in .env")
+CHAT_ID_TBOT = os.getenv('CHAT_ID_TBOT')
+if CHAT_ID_TBOT is None:
+    logging.error("CHATID_TBOT not set in .env")
+CHAT_ID_TBOT = int(CHAT_ID_TBOT)
 ESPRFID_MQTT_TOPIC = os.getenv('ESPRFID_MQTT_TOPIC')
+if ESPRFID_MQTT_TOPIC is None:
+    logging.error("ESPRFID_MQTT_TOPIC not set in .env")
+
 mqttClient = mqtt.Client('TelegramBot')
+last_mqtt_message = time.time()
 
-try:
-    mqttClient.connect(MQTT_BROKER_IP)
-    mqttClient.publish('log', "StartBot")
-except ConnectionRefusedError as e:
-    logging.error(e)
-    exit(30)
-
-updater = Updater(token)
+# Telegram Bot setup
+updater = Updater(TOKEN_TBOT)
 dispatcher = updater.dispatcher
 
 
@@ -71,20 +82,14 @@ def callback_message(update: Update, context: CallbackContext) -> None:
     if query.data == 'open_confirm':
         query.edit_message_text(
             text=f'@{query.from_user.username} ha aperto la porta da #remoto')
-        mqttClient.publish(f'{ESPRFID_MQTT_TOPIC}/cmd', json.dumps({
-            'cmd': 'opendoor',
-            'doorip': ESPRFID_IP
-        }))
+        opendoor_mqtt()
     elif query.data == 'open_cancel':
         query.edit_message_text(
             text=f'Tentativo di @{query.message.reply_to_message.from_user.username} di aprire la porta annullato da @{query.from_user.username}')
     elif query.data.startswith('open_card'):
         query.edit_message_text(
             text=f'@{query.from_user.username} ha aperto alla #tessera {query.data[len("open_card_"):]}')
-        mqttClient.publish(f'{ESPRFID_MQTT_TOPIC}/cmd', json.dumps({
-            'cmd': 'opendoor',
-            'doorip': ESPRFID_IP
-        }))
+        opendoor_mqtt()
     elif query.data.startswith('add_cancel'):
         query.edit_message_text(
             text=f'@{query.from_user.username} ha ignorato la #tessera {query.data[len("add_cancel_"):]}')
@@ -93,10 +98,7 @@ def callback_message(update: Update, context: CallbackContext) -> None:
     elif query.data.startswith('discard_open_'):
         query.edit_message_text(
             f'@{query.from_user.username} ha aperto alla #tessera {query.data[len("discard_open_"):]}')
-        mqttClient.publish(f'{ESPRFID_MQTT_TOPIC}/cmd', json.dumps({
-            'cmd': 'opendoor',
-            'doorip': ESPRFID_IP
-        }))
+        opendoor_mqtt()
     elif query.data.startswith('discard_cancel_'):
         query.edit_message_text(
             f'@{query.from_user.username} ha ignorato la #tessera di {query.data[len("discard_cancel_"):]}')
@@ -128,7 +130,7 @@ def text_message(update: Update, context: CallbackContext) -> None:
         return
     card_number = card_number_match.group()
 
-    dispatcher.bot.edit_message_text(chat_id=DOORBOT_CHAT_ID,
+    dispatcher.bot.edit_message_text(chat_id=CHAT_ID_TBOT,
                                      message_id=reply_to.message_id,
                                      text=f'@{sent_from} ha aggiunto {name_for_new_card} #tessera {card_number}')
 
@@ -140,28 +142,54 @@ def unknown_chat(update: Update, context: CallbackContext):
                                text="Sorry, this bot isn't for you.")
 
 
+def tbot_setup():
+    """Telegram Bot setup"""
+    chat_filter = Filters.text & Filters.chat(CHAT_ID_TBOT)
+    # /help
+    dispatcher.add_handler(CommandHandler('help', help_command, chat_filter))
+    # /open
+    dispatcher.add_handler(CommandHandler('open', open_command, chat_filter))
+    # /[unknown command]
+    dispatcher.add_handler(MessageHandler(
+        Filters.command & chat_filter, unknown_command))
+    # Callback from Inline Keyboard
+    dispatcher.add_handler(CallbackQueryHandler(callback_message))
+    # Other messages
+    dispatcher.add_handler(MessageHandler(
+        ~Filters.command & chat_filter, text_message))
+    # Other chat
+    dispatcher.add_handler(MessageHandler(
+        ~Filters.chat(CHAT_ID_TBOT), unknown_chat))
+
+    updater.start_polling()
+    updater.idle()
+
+
 # MQTT
 
 
 def access_allowed(command):
-    dispatcher.bot.send_message(chat_id=DOORBOT_CHAT_ID,
+    logging.info("open to : " + str(command))
+    dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
                                 text=f'{command["username"]} ha aperto la porta con la #tessera')
 
 
 def new_card_presented(uid: str):
+    logging.info("new_card_presented : " + str(uid))
     keyboard = [[
         InlineKeyboardButton('Ignora', callback_data=f'add_cancel_{uid}'),
         InlineKeyboardButton('Aggiungi', callback_data=f'add_card_{uid}')]]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     _text = f'La \#tessera *{uid}* ha provato ad aprire la porta, ma non è attiva\. Cosa faccio?'
-    dispatcher.bot.send_message(chat_id=DOORBOT_CHAT_ID,
+    dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
                                 reply_markup=reply_markup,
                                 parse_mode=ParseMode.MARKDOWN_V2,
                                 text=_text)
 
 
 def disabled_card_presented(username: str):
+    logging.info("disabled_card_presented : " + str(username))
     keyboard = [[
         InlineKeyboardButton('Ignora',
                              callback_data=f'discard_cancel_{username}'),
@@ -169,7 +197,7 @@ def disabled_card_presented(username: str):
                              callback_data=f'discard_open_{username}')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     _text = f'La \#tessera *{username}* ha provato ad aprire la porta, ma non è abilitata\.\nCosa faccio?'
-    dispatcher.bot.send_message(chat_id=DOORBOT_CHAT_ID,
+    dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
                                 reply_markup=reply_markup,
                                 parse_mode=ParseMode.MARKDOWN_V2,
                                 text=_text)
@@ -187,52 +215,84 @@ def add_user_prompt(query):
 
 
 def save_new_card(card_number, name_for_new_card):
-    today = datetime.today()
-    first_jan_next_year = datetime(today.year()+1, 1, 1).timestamp()
-    mqttClient.publish(f'{ESPRFID_MQTT_TOPIC}/cmd', json.dumps({
+    adduser_mqtt(card_number, name_for_new_card)
+    # TODO save on file
+
+
+# MQTT
+
+def opendoor_mqtt():
+    logging.info("opendoor_mqtt")
+    _payload = json.dumps({'cmd': 'opendoor', 'doorip': ESPRFID_IP})
+    return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
+
+
+def adduser_mqtt(uid: str, user: str, acctype: int = 0):
+    logging.info("adduser_mqtt: " + uid + ' ' + user)
+    end_of_the_year = datetime(datetime.now().year + 1, 1, 1).timestamp() - 59
+    _payload = json.dumps({
         'cmd': 'adduser',
         'doorip': ESPRFID_IP,
-        'uid': card_number,
-        'user': name_for_new_card,
-        'acctype': 0,
-        'validuntil': first_jan_next_year
-    }))
-    # TODO save on file
+        'uid': uid,
+        'user': user,
+        'acctype': acctype,
+        'validuntil': end_of_the_year
+    })
+    return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
 
 
 def on_mqtt_message(client, userdata, message):
     _i = '[MQTT] '
-    logging.info(_i + "TOPIC: '%s', PAYLOAD: '%s'", message.topic,
-                 message.payload)
+    last_mqtt_message = time.time()
+    try:
+        _json = json.loads(message.payload)
+    except BaseException as e:
+        logging.error(e)
+        return
 
-    _json = json.loads(message.payload)
     if message.topic == ESPRFID_MQTT_TOPIC:  # loopback
         pass
-        # logging.warning(_i + "TOPIC '%s' non gestito", message.topic)
 
     elif message.topic == ESPRFID_MQTT_TOPIC + '/send':
         _type = _json.get('type')
+        _cmd = _json.get('cmd')
         if _type == 'access':
             _access = _json.get('access')
             _is_know = _json.get('isKnown')
             if _is_know == 'true':
                 if _access in ['Admin', 'Always']:
                     access_allowed(_json)
+                    return
                 elif _access == 'Disabled':
-                    disabled_card_presented(
-                        _json.get('username'))  # log to Bot
+                    disabled_card_presented(_json.get('username'))
+                    return
                 else:
-                    pass  # log to Bot
+                    logging.warning(_i + "access '%s' non gestito ", _access)
             elif _is_know == 'false':
                 new_card_presented(_json.get('uid'))
+                return
             else:
                 logging.warning(_i + "isKnow '%s' non gestito ", _is_know)
         elif _type == 'WARN':
             pass
         elif _type == 'INFO':
+            logging.info(_i + "INFO " + _json.get('src'))
+        elif _cmd == 'opendoor':
+            logging.info(_i + "opendoor")
+            return
+        elif _cmd == 'listusr':
+            pass
+        elif _cmd == 'deletusers':
+            pass
+        elif _cmd == 'deletuid':
+            pass
+        elif _cmd == 'adduser':
+            pass
+        elif _json.get('command') == 'userfile':
             pass
         else:
-            logging.warning(_i + "type '%s' non gestito ", _type)
+            logging.warning(_i + "type '%s' and cmd '%s' non gestiti",
+                            _type, _cmd)
     elif message.topic == ESPRFID_MQTT_TOPIC + '/sync':
         _type = _json.get('type')
         if _type == 'heartbeat':  # heartbeat
@@ -243,37 +303,55 @@ def on_mqtt_message(client, userdata, message):
         logging.warning(_i + "TOPIC '%s' non gestito", message.topic)
     else:
         logging.warning(_i + "TOPIC '%s' non gestito", message.topic)
+    logging.info(_i + "TOPIC: '%s', PAYLOAD: '%s'", message.topic,
+                 message.payload)
 
 
-def main() -> None:
+def mqtt_setup():
     """ MQTT setup """
+    logging.info("start MQTT setup")
+
+    attempts = 5
+    while attempts:
+        try:
+            mqttClient.connect_async(MQTT_BROKER_IP)
+            break
+        except BaseException as e:
+            logging.error(e)
+        attempts -= 1
+        time.sleep(0.1)
     mqttClient.loop_start()
     mqttClient.subscribe(ESPRFID_MQTT_TOPIC)
     mqttClient.subscribe(ESPRFID_MQTT_TOPIC + '/send')
     mqttClient.subscribe(ESPRFID_MQTT_TOPIC + '/sync')
     mqttClient.subscribe(ESPRFID_MQTT_TOPIC + '/accesslist')
     mqttClient.on_message = on_mqtt_message
+    logging.debug("end MQTT setup")
 
-    ''' Telegram Bot setup '''
-    chat_filter = Filters.text & Filters.chat(DOORBOT_CHAT_ID)
-    # /help
-    dispatcher.add_handler(CommandHandler('help', help_command, chat_filter))
-    # /open
-    dispatcher.add_handler(CommandHandler('open', open_command, chat_filter))
-    # /[unknown command]
-    dispatcher.add_handler(MessageHandler(
-        Filters.command & chat_filter, unknown_command))
-    # Callback from Inline Keyboard
-    dispatcher.add_handler(CallbackQueryHandler(callback_message))
-    # Other messages
-    dispatcher.add_handler(MessageHandler(
-        ~Filters.command & chat_filter, text_message))
-    # Other chat
-    dispatcher.add_handler(MessageHandler(
-        ~Filters.chat(DOORBOT_CHAT_ID), unknown_chat))
 
-    updater.start_polling()
-    updater.idle()
+def main() -> None:
+    mqtt_setup()
+    tbot_setup()
+    while True:
+        try:
+            if time.time() - last_mqtt_message > 130:
+                attempts = 5
+                while attempts:
+                    try:
+                        mqttClient.connect_async(MQTT_BROKER_IP)
+                        break
+                    except BaseException as e:
+                        logging.error(e)
+                    attempts -= 1
+                    time.sleep(0.1)
+
+                mqttClient.subscribe(ESPRFID_MQTT_TOPIC)
+                mqttClient.subscribe(ESPRFID_MQTT_TOPIC + '/send')
+                mqttClient.subscribe(ESPRFID_MQTT_TOPIC + '/sync')
+                mqttClient.subscribe(ESPRFID_MQTT_TOPIC + '/accesslist')
+            time.sleep(1)
+        except KeyboardInterrupt as e:
+            exit(2)
 
 
 if __name__ == '__main__':
