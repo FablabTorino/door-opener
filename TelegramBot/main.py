@@ -31,6 +31,7 @@ MQTT_BROKER_IP = os.getenv('MQTT_BROKER_IP')
 if MQTT_BROKER_IP is None:
     logging.error("MQTT_BROKER_IP not set in .env")
 ESPRFID_IP = os.getenv('ESPRFID_IP')
+
 if ESPRFID_IP is None:
     logging.error("ESPRFID_IP not set in .env")
 TOKEN_TBOT = os.getenv('TOKEN_TBOT')
@@ -44,7 +45,6 @@ ESPRFID_MQTT_TOPIC = os.getenv('ESPRFID_MQTT_TOPIC')
 if ESPRFID_MQTT_TOPIC is None:
     logging.error("ESPRFID_MQTT_TOPIC not set in .env")
 
-# MQTT setup
 mqttClient = mqtt.Client('TelegramBot')
 last_mqtt_message = time.time()
 
@@ -224,7 +224,7 @@ def save_new_card(card_number, name_for_new_card):
 def opendoor_mqtt():
     logging.info("opendoor_mqtt")
     _payload = json.dumps({'cmd': 'opendoor', 'doorip': ESPRFID_IP})
-    return mqttClient.publish(ESPRFID_MQTT_TOPIC, _payload)
+    return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
 
 
 def adduser_mqtt(uid: str, user: str, acctype: int = 0):
@@ -238,7 +238,7 @@ def adduser_mqtt(uid: str, user: str, acctype: int = 0):
         'acctype': acctype,
         'validuntil': end_of_the_year
     })
-    return mqttClient.publish(ESPRFID_MQTT_TOPIC, _payload)
+    return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
 
 
 def on_mqtt_message(client, userdata, message):
