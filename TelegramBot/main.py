@@ -28,7 +28,7 @@ MQTT_BROKER_IP = os.getenv('MQTT_BROKER_IP')
 ESPRFID_IP = os.getenv('ESPRFID_IP')
 token = os.getenv('TOKEN')
 DOORBOT_CHAT_ID = int(os.getenv('CHAT_ID'))
-ESPRFID_MQTT_TOPIC = 'esp-rfid'
+ESPRFID_MQTT_TOPIC = os.getenv('ESPRFID_MQTT_TOPIC')
 mqttClient = mqtt.Client('TelegramBot')
 
 try:
@@ -71,7 +71,7 @@ def callback_message(update: Update, context: CallbackContext) -> None:
     if query.data == 'open_confirm':
         query.edit_message_text(
             text=f'@{query.from_user.username} ha aperto la porta da #remoto')
-        mqttClient.publish('esp-rfid', json.dumps({
+        mqttClient.publish(f'{ESPRFID_MQTT_TOPIC}/cmd', json.dumps({
             'cmd': 'opendoor',
             'doorip': ESPRFID_IP
         }))
@@ -81,7 +81,7 @@ def callback_message(update: Update, context: CallbackContext) -> None:
     elif query.data.startswith('open_card'):
         query.edit_message_text(
             text=f'@{query.from_user.username} ha aperto alla #tessera {query.data[len("open_card_"):]}')
-        mqttClient.publish('esp-rfid', json.dumps({
+        mqttClient.publish(f'{ESPRFID_MQTT_TOPIC}/cmd', json.dumps({
             'cmd': 'opendoor',
             'doorip': ESPRFID_IP
         }))
@@ -93,7 +93,7 @@ def callback_message(update: Update, context: CallbackContext) -> None:
     elif query.data.startswith('discard_open_'):
         query.edit_message_text(
             f'@{query.from_user.username} ha aperto alla #tessera {query.data[len("discard_open_"):]}')
-        mqttClient.publish('esp-rfid', json.dumps({
+        mqttClient.publish(f'{ESPRFID_MQTT_TOPIC}/cmd', json.dumps({
             'cmd': 'opendoor',
             'doorip': ESPRFID_IP
         }))
@@ -189,7 +189,7 @@ def add_user_prompt(query):
 def save_new_card(card_number, name_for_new_card):
     today = datetime.today()
     first_jan_next_year = datetime(today.year()+1, 1, 1).timestamp()
-    mqttClient.publish('esp-rfid', json.dumps({
+    mqttClient.publish(f'{ESPRFID_MQTT_TOPIC}/cmd', json.dumps({
         'cmd': 'adduser',
         'doorip': ESPRFID_IP,
         'uid': card_number,
