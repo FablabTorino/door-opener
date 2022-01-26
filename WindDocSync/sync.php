@@ -114,12 +114,16 @@ function extractInfo($user) {
   $res->fullName = $user->contatto_nome . ' ' . $user->contatto_cognome;
   $res->validUntil = property_exists($user, 'data_scadenza_rinnovo') ?
     strtotime($user->data_scadenza_rinnovo) : 0;
-  $res->Pin = $user->campo6;
- if( $user->campo2 == '1') {
-  $res->accessLevel = '99'; // H24
- }else{
-  $res->accessLevel = '1'; // 16-20
-}
+  if( $user->campo6 == '' | $user->campo6 == '1234') {
+    $res->Pin = 'xxxx'; // H24
+  }else{
+    $res->Pin = $user->campo6;
+  }
+  if( $user->campo2 == '1') {
+   $res->accessLevel = '99'; // H24
+  }else{
+   $res->accessLevel = '1'; // 16-20
+
   return $res;
 }
 

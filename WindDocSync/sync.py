@@ -19,17 +19,25 @@ file = open(sync_json_path)
 users = json.load(file)
 
 print('clean')
-mqttClient.publish('esp-rfid', json.dumps({
+mqttClient.publish('esp-rfid/cmd', json.dumps({
      'cmd': 'deletusers',
      'doorip': ESPRFID_IP
   }))
 
 for u in users:
   print(u['fullName'])
-  mqttClient.publish('esp-rfid', json.dumps({
+  hex_string = u['cardNumber']
+  hex_string_pad = hex_string.zfill(14)
+  hex_string_cut = hex_string_pad[:8]
+  hex_data = bytearray.fromhex(hex_string_cut)
+  hex_reverse = hex_data.reverse()
+  hex_reverse = "".join(map(lambda b: format(b, "02x"), hex_data))
+  print(u['cardNumber'])
+  print(hex_reverse)
+  mqttClient.publish('esp-rfid/cmd', json.dumps({
       'cmd': 'adduser',
       'doorip': ESPRFID_IP,
-      'uid': u['cardNumber'],
+      'uid': hex_reverse,
       'user': u['fullName'],
       'acctype': u['accessLevel'],
       'pincode': u['Pin'],
