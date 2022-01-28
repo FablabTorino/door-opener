@@ -20,7 +20,7 @@ logging_path = join(os.getcwd(), dirname(__file__), 'doorbot.log')
 logging.basicConfig(
     filename=logging_path,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    # format=' %(levelname)s - %(message)s', # use only for debugging
+   # format=' %(levelname)s - %(message)s', # use only for debugging
     level=logging.INFO)
 
 # environment variables
@@ -56,7 +56,7 @@ dispatcher = updater.dispatcher
 # Telegram Bot
 
 def help_command(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text('Usa /open per aprire la porta')
+    update.message.reply_text('Usa /open per aprire la porta oppure usa /sync per sincronizzare manualmente con WindDoc')
 
 
 def open_command(update: Update, context: CallbackContext) -> None:
@@ -68,6 +68,18 @@ def open_command(update: Update, context: CallbackContext) -> None:
     ]
     update.message.reply_text('Sicuro che devo aprire la porta?',
                               reply_markup=InlineKeyboardMarkup(keyboard))
+
+def sync_command(update: Update, context: CallbackContext) -> None:
+    keyboard = [
+        [
+            InlineKeyboardButton('Annulla', callback_data='sync_cancel'),
+            InlineKeyboardButton('Sincronizza', callback_data='sync_confirm'),
+        ]
+    ]
+    update.message.reply_text('Devo procedere alla sincronizzazione con Winddoc?',
+                              reply_markup=InlineKeyboardMarkup(keyboard))
+
+
 
 
 def unknown_command(update, context) -> None:
@@ -86,6 +98,13 @@ def callback_message(update: Update, context: CallbackContext) -> None:
     elif query.data == 'open_cancel':
         query.edit_message_text(
             text=f'Tentativo di @{query.message.reply_to_message.from_user.username} di aprire la porta annullato da @{query.from_user.username}')
+    elif query.data == 'sync_confirm':
+        query.edit_message_text(
+            text=f'@{query.from_user.username} ha sincronizzato con WindDoc manualmente')
+        sync_bash()
+    elif query.data == 'sync_cancel':
+        query.edit_message_text(
+            text=f'Tentativo di @{query.message.reply_to_message.from_user.username} di sincronizzazione annullato da @{query.from_user.username}')
     elif query.data.startswith('open_card'):
         query.edit_message_text(
             text=f'@{query.from_user.username} ha aperto alla #tessera {query.data[len("open_card_"):]}')
@@ -149,6 +168,8 @@ def tbot_setup():
     dispatcher.add_handler(CommandHandler('help', help_command, chat_filter))
     # /open
     dispatcher.add_handler(CommandHandler('open', open_command, chat_filter))
+    # /sync
+    dispatcher.add_handler(CommandHandler('sync', sync_command, chat_filter))
     # /[unknown command]
     dispatcher.add_handler(MessageHandler(
         Filters.command & chat_filter, unknown_command))
@@ -226,6 +247,10 @@ def opendoor_mqtt():
     _payload = json.dumps({'cmd': 'opendoor', 'doorip': ESPRFID_IP})
     return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
 
+def sync_bash():
+    logging.info("sync_bash")
+    os.system("bash /home/pi/WindDocSync/sync.sh")
+    return
 
 def adduser_mqtt(uid: str, user: str, acctype: int = 0):
     logging.info("adduser_mqtt: " + uid + ' ' + user)
@@ -293,7 +318,7 @@ def on_mqtt_message(client, userdata, message):
         else:
             logging.warning(_i + "type '%s' and cmd '%s' non gestiti",
                             _type, _cmd)
-    elif message.topic == ESPRFID_MQTT_TOPIC + '/sync':
+    elif message.topic == ESPRFID_MQTT_TOPIC + '/send':
         _type = _json.get('type')
         if _type == 'heartbeat':  # heartbeat
             pass
