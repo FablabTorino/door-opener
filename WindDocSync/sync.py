@@ -3,45 +3,61 @@ import os
 from os.path import join, dirname
 from dotenv import load_dotenv
 import paho.mqtt.client as mqtt
+import re
 
-MQTT_BROKER_IP = os.getenv('MQTT_BROKER_IP')
-ESPRFID_IP = os.getenv('ESPRFID_IP')
+# convert the full card uid to a shorter format
+# compatible with wiegand output of esp-rfid
+def card_number_to_wiegand_format(card_number: str) -> str:
+  # make all cards 14 bytes long
+  hex_string_pad = card_number.zfill(14)
+  # keep only the first 8 bytes
+  hex_string_cut = hex_string_pad[:8]
+  hex_data = bytearray.fromhex(hex_string_cut)
+  hex_data.reverse()
+  return hex_data.hex()
 
-mqttClient = mqtt.Client('TelegramBot')
-try:
-  mqttClient.connect(MQTT_BROKER_IP)
-  mqttClient.publish('log', "StartBot")
-except ConnectionRefusedError as e:
-  exit(30)
+def load_users():
+  sync_json_path = join(dirname(__file__), 'sync.json')
+  file = open(sync_json_path)
+  users = json.load(file)
+  os.remove(sync_json_path)
+  return users
 
-sync_json_path = join(dirname(__file__), 'sync.json')
-file = open(sync_json_path)
-users = json.load(file)
-
-print('clean')
-mqttClient.publish('esp-rfid/cmd', json.dumps({
+def mqtt_delete_users():
+  mqttClient.publish('esp-rfid/cmd', json.dumps({
      'cmd': 'deletusers',
      'doorip': ESPRFID_IP
   }))
 
-for u in users:
-  print(u['fullName'])
-  hex_string = u['cardNumber']
-  hex_string_pad = hex_string.zfill(14)
-  hex_string_cut = hex_string_pad[:8]
-  hex_data = bytearray.fromhex(hex_string_cut)
-  hex_reverse = hex_data.reverse()
-  hex_reverse = "".join(map(lambda b: format(b, "02x"), hex_data))
-  print(u['cardNumber'])
-  print(hex_reverse)
-  mqttClient.publish('esp-rfid/cmd', json.dumps({
-      'cmd': 'adduser',
-      'doorip': ESPRFID_IP,
-      'uid': hex_reverse,
-      'user': u['fullName'],
-      'acctype': u['accessLevel'],
-      'pincode': u['Pin'],
-      'validuntil': u['validUntil']
-  }))
+def mqtt_add_users(users):
+  for u in users:
+    pincode = u['Pin']
+    # default pincode if the provided is not valid
+    # valid pincode is made by 4 digits
+    if re.match(r'\d{4}', pincode) is None:
+      pincode = '0000'
+    mqttClient.publish('esp-rfid/cmd', json.dumps({
+        'cmd': 'adduser',
+        'doorip': ESPRFID_IP,
+        'uid': card_number_to_wiegand_format(u['cardNumber']),
+        'user': u['fullName'],
+        'acctype': u['accessLevel'],
+        'pincode': pincode,
+        'validuntil': u['validUntil']
+    }))
 
-os.remove(sync_json_path)
+MQTT_BROKER_IP = os.getenv('MQTT_BROKER_IP')
+ESPRFID_IP = os.getenv('ESPRFID_IP')
+mqttClient = mqtt.Client('TelegramBot')
+
+try:
+  mqttClient.connect(MQTT_BROKER_IP)
+  mqttClient.loop_start()
+except ConnectionRefusedError as e:
+  exit(30)
+
+users = load_users()
+mqtt_delete_users()
+mqtt_add_users(users)
+
+mqttClient.loop_stop()
