@@ -120,10 +120,10 @@ function extractInfo($user) {
     $res->Pin = $user->campo6;
   }
   if( $user->campo2 == '1') {
-   $res->accessLevel = '99'; // H24
+    $res->accessLevel = '99'; // H24
   }else{
-   $res->accessLevel = '1'; // 16-20
-
+    $res->accessLevel = '1'; // 16-20
+  }
   return $res;
 }
 
@@ -160,7 +160,7 @@ function main() {
 
   $WindDocTalker = new WindDocTalker($_ENV['WINDDOC_TOKEN'], $_ENV['WINDDOC_TOKEN_APP']);
   
-  $usersArr = $WindDocTalker->listaSoci(1, '', 500);
+  $usersArr = $WindDocTalker->listaSoci(1, '', 1500);
   $users = array_map('arrayUserToObject', $usersArr->lista);
   $extractedInfo = array_map('extractInfo', $users);
   $usersToSync = array_values(array_filter($extractedInfo, 'isToSync'));
