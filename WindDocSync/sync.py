@@ -32,10 +32,14 @@ def mqtt_delete_users():
 def mqtt_add_users(users):
   for u in users:
     pincode = u['Pin']
-    # default pincode if the provided is not valid
-    # valid pincode is made by 4 digits
+    # if 3 or 4 digits are equal the pincode is not valid
+    # we override it with an invalid one
+    if re.match(r'[0-9]?([0-9])\1\1+', pincode, re.M) is not None:
+      pincode = 'xxxx'
+    # if pincode is not made of 4 digits
+    # we override it with an invalid one
     if re.match(r'\d{4}', pincode) is None:
-      pincode = '0000'
+      pincode = 'xxxx'
     mqttClient.publish('esp-rfid/cmd', json.dumps({
         'cmd': 'adduser',
         'doorip': ESPRFID_IP,
