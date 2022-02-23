@@ -186,9 +186,6 @@ def tbot_setup():
     updater.idle()
 
 
-# MQTT
-
-
 def access_allowed(command):
     logging.info("open to : " + str(command))
     dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
@@ -339,7 +336,7 @@ def mqtt_setup():
     attempts = 5
     while attempts:
         try:
-            mqttClient.connect_async(MQTT_BROKER_IP)
+            mqttClient.connect(MQTT_BROKER_IP)
             break
         except BaseException as e:
             logging.error(e)
@@ -363,7 +360,7 @@ def main() -> None:
                 attempts = 5
                 while attempts:
                     try:
-                        mqttClient.connect_async(MQTT_BROKER_IP)
+                        mqttClient.connect(MQTT_BROKER_IP)
                         break
                     except BaseException as e:
                         logging.error(e)
