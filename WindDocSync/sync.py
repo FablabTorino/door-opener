@@ -4,6 +4,12 @@ from os.path import join, dirname
 from dotenv import load_dotenv
 import paho.mqtt.client as mqtt
 import re
+import time
+import json
+
+ESPRFID_MQTT_TOPIC = os.getenv('ESPRFID_MQTT_TOPIC')
+if ESPRFID_MQTT_TOPIC is None:
+    logging.error('ESPRFID_MQTT_TOPIC not set in .env')
 
 # convert the full card uid to a shorter format
 # compatible with wiegand output of esp-rfid
@@ -29,39 +35,65 @@ def mqtt_delete_users():
      'doorip': ESPRFID_IP
   }))
 
-def mqtt_add_users(users):
-  for u in users:
-    pincode = u['Pin']
-    # if 3 or 4 digits are equal the pincode is not valid
-    # we override it with an invalid one
-    if re.match(r'[0-9]?([0-9])\1\1+', pincode, re.M) is not None:
-      pincode = 'xxxx'
-    # if pincode is not made of 4 digits
-    # we override it with an invalid one
-    if re.match(r'\d{4}', pincode) is None:
-      pincode = 'xxxx'
-    mqttClient.publish('esp-rfid/cmd', json.dumps({
-        'cmd': 'adduser',
-        'doorip': ESPRFID_IP,
-        'uid': card_number_to_wiegand_format(u['cardNumber']),
-        'user': u['fullName'],
-        'acctype': u['accessLevel'],
-        'pincode': pincode,
-        'validuntil': u['validUntil']
-    }))
+def on_mqtt_message(client, userdata, message):
+  try:
+    json_message = json.loads(message.payload)
+  except BaseException as e:
+    logging.error(e)
+    return
+
+  type = json_message.get('type')
+  if type == 'adduser' and len(users) > 0:
+    user = users.pop(0)
+    mqtt_send_user(user)
+
+
+def mqtt_send_user(user):
+  print('sending user ', user['fullName'])
+  pincode = user['Pin']
+  # if 3 or 4 digits are equal the pincode is not valid
+  # we override it with an invalid one
+  if re.match(r'[0-9]?([0-9])\1\1+', pincode, re.M) is not None:
+    pincode = 'xxxx'
+  # if pincode is not made of 4 digits
+  # we override it with an invalid one
+  if re.match(r'\d{4}', pincode) is None:
+    pincode = 'xxxx'
+  time.sleep(0.1)
+  mqttClient.publish('esp-rfid/cmd', json.dumps({
+      'cmd': 'adduser',
+      'doorip': ESPRFID_IP,
+      'uid': card_number_to_wiegand_format(user['cardNumber']),
+      'user': user['fullName'],
+      'acctype': user['accessLevel'],
+      'pincode': pincode,
+      'validuntil': user['validUntil']
+  }))
+
+def mqtt_add_users():
+  # we send the first one, then the callback should send more
+  # only when esp-rfid has finished
+  user = users.pop(0)
+  mqtt_send_user(user)
+
+  while len(users) > 0:
+    # every second we check if we are done 
+    time.sleep(1)
 
 MQTT_BROKER_IP = os.getenv('MQTT_BROKER_IP')
 ESPRFID_IP = os.getenv('ESPRFID_IP')
-mqttClient = mqtt.Client('TelegramBot')
+mqttClient = mqtt.Client('WindDocSync')
 
 try:
   mqttClient.connect(MQTT_BROKER_IP)
   mqttClient.loop_start()
+  mqttClient.subscribe(ESPRFID_MQTT_TOPIC + '/send')
+  mqttClient.on_message = on_mqtt_message
 except ConnectionRefusedError as e:
   exit(30)
 
 users = load_users()
 mqtt_delete_users()
-mqtt_add_users(users)
+mqtt_add_users()
 
 mqttClient.loop_stop()
