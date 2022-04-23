@@ -95,8 +95,6 @@ def callback_message(update: Update, context: CallbackContext) -> None:
     query.answer()
 
     if query.data.startswith ('open_confirm'):
-        query.edit_message_text(
-            text=f'@{query.from_user.username} ha aperto la porta {query.data[len("open_confirm_"):]} da #remoto')
         opendoor_mqtt(query)
     elif query.data == 'open_cancel':
         query.edit_message_text(
