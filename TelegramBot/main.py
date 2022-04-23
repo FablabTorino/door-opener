@@ -30,10 +30,12 @@ load_dotenv(find_dotenv(dotenv_path, raise_error_if_not_found=True))
 MQTT_BROKER_IP = os.getenv('MQTT_BROKER_IP')
 if MQTT_BROKER_IP is None:
     logging.error("MQTT_BROKER_IP not set in .env")
-ESPRFID_IP = os.getenv('ESPRFID_IP')
-
-if ESPRFID_IP is None:
-    logging.error("ESPRFID_IP not set in .env")
+DOOR1_IP = os.getenv('DOOR1_IP')
+if DOOR1_IP is None:
+    logging.error("DOOR1_IP not set in .env")
+DOOR2_IP = os.getenv('DOOR2_IP')
+if DOOR2_IP is None:
+    logging.error("DOOR2_IP not set in .env")
 TOKEN_TBOT = os.getenv('TOKEN_TBOT')
 if TOKEN_TBOT is None:
     logging.error("token not set in .env")
@@ -63,7 +65,8 @@ def open_command(update: Update, context: CallbackContext) -> None:
     keyboard = [
         [
             InlineKeyboardButton('Annulla', callback_data='open_cancel'),
-            InlineKeyboardButton('Apri', callback_data='open_confirm'),
+            InlineKeyboardButton('Apri EGEO16', callback_data='open_confirm_{DOOR1_IP}'),
+            InlineKeyboardButton('Apri INTERNO TOOLBOX', callback_data='open_confirm_{DOOR2_IP}'),
         ]
     ]
     update.message.reply_text('Sicuro che devo aprire la porta?',
@@ -91,10 +94,10 @@ def callback_message(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
 
-    if query.data == 'open_confirm':
+    if query.data.startswith ('open_confirm'):
         query.edit_message_text(
-            text=f'@{query.from_user.username} ha aperto la porta da #remoto')
-        opendoor_mqtt()
+            text=f'@{query.from_user.username} ha aperto la porta {query.data[len("open_confirm_"):]} da #remoto')
+        opendoor_mqtt(query)
     elif query.data == 'open_cancel':
         query.edit_message_text(
             text=f'Tentativo di @{query.message.reply_to_message.from_user.username} di aprire la porta annullato da @{query.from_user.username}')
@@ -215,7 +218,7 @@ def disabled_card_presented(username: str):
         InlineKeyboardButton('Apri',
                              callback_data=f'discard_open_{username}')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    _text = f'La \#tessera *{username}* ha provato ad aprire la porta, ma non è abilitata\.\nCosa faccio?'
+    _text = f'La \#tessera *{username}* ha provato ad aprire la porta, ma non è fuori orario\.\nCosa faccio?'
     dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
                                 reply_markup=reply_markup,
                                 parse_mode=ParseMode.MARKDOWN_V2,
@@ -240,10 +243,21 @@ def save_new_card(card_number, name_for_new_card):
 
 # MQTT
 
-def opendoor_mqtt():
-    logging.info("opendoor_mqtt")
-    _payload = json.dumps({'cmd': 'opendoor', 'doorip': ESPRFID_IP})
-    return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
+def opendoor_mqtt(query):
+    DOORIP = query.data[len('open_confirm_'):]
+    if DOORIP == DOOR1_IP:
+        logging.info("opendoor_mqtt")
+        _payload = json.dumps({'cmd': 'opendoor', 'doorip': DOOR1_IP})
+        query.edit_message_text(
+            text=f'@{query.from_user.username} ha aperto la porta EGEO16 da #remoto')
+        return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
+
+    elif DOORIP == DOOR2_IP:
+        logging.info("opendoor_mqtt")
+        _payload = json.dumps({'cmd': 'opendoor', 'doorip': DOOR2_IP})
+        query.edit_message_text(
+            text=f'@{query.from_user.username} ha aperto la porta INTERNA TOOLBOX da #remoto')
+        return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
 
 def sync_bash():
     logging.info("sync_bash")
