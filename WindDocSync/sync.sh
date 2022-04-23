@@ -3,7 +3,6 @@
 pushd ${BASH_SOURCE%/*}
 
 php sync.php
-pipenv shell
-python sync.py
+pipenv run python sync.py
 
 popd

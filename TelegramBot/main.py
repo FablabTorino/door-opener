@@ -189,19 +189,20 @@ def tbot_setup():
 def access_allowed(command):
     logging.info("open to : " + str(command))
     dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
-                                text=f'{command["username"]} ha aperto la porta con la #tessera')
+                                text=f'{command["username"]} ha aperto la porta {command["hostname"]} con la #tessera')
 
 
 def new_card_presented(uid: str):
     logging.info("new_card_presented : " + str(uid))
-    keyboard = [[
-        InlineKeyboardButton('Ignora', callback_data=f'add_cancel_{uid}'),
-        InlineKeyboardButton('Aggiungi', callback_data=f'add_card_{uid}')]]
+    #keyboard = [[
+     #   InlineKeyboardButton('Ignora', callback_data=f'add_cancel_{uid}'),
+      #  InlineKeyboardButton('Aggiungi', callback_data=f'add_card_{uid}')]]
 
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    _text = f'La \#tessera *{uid}* ha provato ad aprire la porta, ma non è attiva\. Cosa faccio?'
+    #reply_markup = InlineKeyboardMarkup(keyboard)
+    _text = f'La \#tessera *{uid}* ha provato ad aprire la porta, ma non è attiva\.'
+#    _text = f'La \#tessera *{uid}* ha provato ad aprire la porta, ma non è attiva\. Cosa faccio?'
     dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
-                                reply_markup=reply_markup,
+    #                            reply_markup=reply_markup,
                                 parse_mode=ParseMode.MARKDOWN_V2,
                                 text=_text)
 
@@ -246,7 +247,7 @@ def opendoor_mqtt():
 
 def sync_bash():
     logging.info("sync_bash")
-    os.system("bash /home/pi/WindDocSync/sync.sh")
+    os.system(WINDDOC_SYNC_PATH)
     return
 
 def adduser_mqtt(uid: str, user: str, acctype: int = 0):
