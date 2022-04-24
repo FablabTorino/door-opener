@@ -122,7 +122,7 @@ def callback_message(update: Update, context: CallbackContext) -> None:
     elif query.data.startswith('discard_open_'):
         query.edit_message_text(
             f'@{query.from_user.username} ha aperto alla #tessera {query.data[len("discard_open_"):]}')
-        opendoor_mqtt()
+        opendoor_mqtt(query)
     elif query.data.startswith('discard_cancel_'):
         query.edit_message_text(
             f'@{query.from_user.username} ha ignorato la #tessera di {query.data[len("discard_cancel_"):]}')
@@ -204,7 +204,7 @@ def new_card_presented(uid: str):
       #  InlineKeyboardButton('Aggiungi', callback_data=f'add_card_{uid}')]]
 
     #reply_markup = InlineKeyboardMarkup(keyboard)
-    _text = f'La \#tessera *{uid}* ha provato ad aprire la porta, ma non è attiva\.'
+    _text = f'La \#tessera *{uid}* ha provato ad aprire la porta {command["hostname"]}, ma non è una tessera registrata\.'
 #    _text = f'La \#tessera *{uid}* ha provato ad aprire la porta, ma non è attiva\. Cosa faccio?'
     dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
     #                            reply_markup=reply_markup,
@@ -212,17 +212,18 @@ def new_card_presented(uid: str):
                                 text=_text)
 
 
-def disabled_card_presented(username: str):
-    logging.info("disabled_card_presented : " + str(username))
-    keyboard = [[
-        InlineKeyboardButton('Ignora',
-                             callback_data=f'discard_cancel_{username}'),
-        InlineKeyboardButton('Apri',
-                             callback_data=f'discard_open_{username}')]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    _text = f'La \#tessera *{username}* ha provato ad aprire la porta, ma non è fuori orario\.\nCosa faccio?'
+def disabled_card_presented(username: str, hostname: str):
+    logging.info("disabled_card_presented : " + str(username) + " " + str(hostname))
+    #keyboard = [[
+    #    InlineKeyboardButton('Ignora',
+    #                         callback_data=f'discard_cancel_{username}'),
+    #    InlineKeyboardButton('Apri',
+    #                         callback_data=f'discard_open_{username}')]]
+    #reply_markup = InlineKeyboardMarkup(keyboard)
+    #_text = f'La \#tessera *{username}* ha provato ad aprire la porta {hostname}, ma è fuori orario\.\nCosa faccio?'
+    _text = f'La \#tessera *{username}* ha provato ad aprire la porta {hostname}, ma è fuori orario\.'
     dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
-                                reply_markup=reply_markup,
+     #                           reply_markup=reply_markup,
                                 parse_mode=ParseMode.MARKDOWN_V2,
                                 text=_text)
 
@@ -303,7 +304,7 @@ def on_mqtt_message(client, userdata, message):
                     access_allowed(_json)
                     return
                 elif _access == 'Disabled':
-                    disabled_card_presented(_json.get('username'))
+                    disabled_card_presented(_json.get('username'), _json.get('hostname'))
                     return
                 else:
                     logging.warning(_i + "access '%s' non gestito ", _access)
