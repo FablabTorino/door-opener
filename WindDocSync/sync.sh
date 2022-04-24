@@ -3,6 +3,6 @@
 pushd ${BASH_SOURCE%/*}
 
 php sync.php
-pipenv run python sync.py
+timeout 300 pipenv run python door1.py && timeout 300 pipenv run python door2.py
 
 popd

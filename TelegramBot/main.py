@@ -46,6 +46,10 @@ CHAT_ID_TBOT = int(CHAT_ID_TBOT)
 ESPRFID_MQTT_TOPIC = os.getenv('ESPRFID_MQTT_TOPIC')
 if ESPRFID_MQTT_TOPIC is None:
     logging.error("ESPRFID_MQTT_TOPIC not set in .env")
+WINDDOC_SYNC_PATH = os.getenv('WINDDOC_SYNC_PATH')
+if WINDDOC_SYNC_PATH is None:
+    logging.error("WINDDOC_SYNC_PATH not set in .env")
+
 
 mqttClient = mqtt.Client('TelegramBot')
 last_mqtt_message = time.time()
@@ -65,8 +69,8 @@ def open_command(update: Update, context: CallbackContext) -> None:
     keyboard = [
         [
             InlineKeyboardButton('Annulla', callback_data='open_cancel'),
-            InlineKeyboardButton('Apri EGEO16', callback_data='open_confirm_{DOOR1_IP}'),
-            InlineKeyboardButton('Apri INTERNO TOOLBOX', callback_data='open_confirm_{DOOR2_IP}'),
+            InlineKeyboardButton('Apri EGEO16', callback_data=f'open_confirm_{DOOR1_IP}'),
+            InlineKeyboardButton('Apri INTERNO TOOLBOX', callback_data=f'open_confirm_{DOOR2_IP}'),
         ]
     ]
     update.message.reply_text('Sicuro che devo aprire la porta?',

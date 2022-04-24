@@ -81,7 +81,7 @@ def mqtt_add_users():
     time.sleep(1)
 
 MQTT_BROKER_IP = os.getenv('MQTT_BROKER_IP')
-ESPRFID_IP = os.getenv('ESPRFID_IP')
+ESPRFID_IP = os.getenv('DOOR2_IP')
 mqttClient = mqtt.Client('WindDocSync')
 
 try:
