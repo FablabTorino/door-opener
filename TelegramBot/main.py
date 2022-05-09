@@ -76,6 +76,7 @@ def open_command(update: Update, context: CallbackContext) -> None:
     update.message.reply_text('Sicuro che devo aprire la porta?',
                               reply_markup=InlineKeyboardMarkup(keyboard))
 
+
 def sync_command(update: Update, context: CallbackContext) -> None:
     keyboard = [
         [
@@ -85,8 +86,6 @@ def sync_command(update: Update, context: CallbackContext) -> None:
     ]
     update.message.reply_text('Devo procedere alla sincronizzazione con Winddoc?',
                               reply_markup=InlineKeyboardMarkup(keyboard))
-
-
 
 
 def unknown_command(update, context) -> None:
@@ -114,51 +113,9 @@ def callback_message(update: Update, context: CallbackContext) -> None:
         query.edit_message_text(
             text=f'@{query.from_user.username} ha aperto alla #tessera {query.data[len("open_card_"):]}')
         opendoor_mqtt()
-    elif query.data.startswith('add_cancel'):
-        query.edit_message_text(
-            text=f'@{query.from_user.username} ha ignorato la #tessera {query.data[len("add_cancel_"):]}')
-    elif query.data.startswith('add_card'):
-        add_user_prompt(query)
-    elif query.data.startswith('discard_open_'):
-        query.edit_message_text(
-            f'@{query.from_user.username} ha aperto alla #tessera {query.data[len("discard_open_"):]}')
-        opendoor_mqtt(query)
-    elif query.data.startswith('discard_cancel_'):
-        query.edit_message_text(
-            f'@{query.from_user.username} ha ignorato la #tessera di {query.data[len("discard_cancel_"):]}')
     else:
         query.edit_message_text(
             text=f'Risposta non riconosciuta, comando annullato.')
-
-
-def text_message(update: Update, context: CallbackContext) -> None:
-    name_for_new_card = update.message.text
-    sent_from = update.message.from_user.username
-    reply_to = update.message.reply_to_message
-
-    if reply_to is None:  # or len(reply_to.entities) != 2:
-        return
-
-    reply_to_text = reply_to.text
-    original_user = reply_to_text[
-                    reply_to.entities[0].offset + 1:reply_to.entities[
-                        0].length]
-    if original_user != sent_from:
-        return
-
-    card_number_match = re.match('.+(?=\\.)',
-                                 reply_to_text[
-                                 reply_to.entities[1].offset +
-                                 reply_to.entities[1].length + 1:])
-    if card_number_match is None:
-        return
-    card_number = card_number_match.group()
-
-    dispatcher.bot.edit_message_text(chat_id=CHAT_ID_TBOT,
-                                     message_id=reply_to.message_id,
-                                     text=f'@{sent_from} ha aggiunto {name_for_new_card} #tessera {card_number}')
-
-    save_new_card(card_number, name_for_new_card)
 
 
 def unknown_chat(update: Update, context: CallbackContext):
@@ -180,9 +137,6 @@ def tbot_setup():
         Filters.command & chat_filter, unknown_command))
     # Callback from Inline Keyboard
     dispatcher.add_handler(CallbackQueryHandler(callback_message))
-    # Other messages
-    dispatcher.add_handler(MessageHandler(
-        ~Filters.command & chat_filter, text_message))
     # Other chat
     dispatcher.add_handler(MessageHandler(
         ~Filters.chat(CHAT_ID_TBOT), unknown_chat))
@@ -199,86 +153,41 @@ def access_allowed(command):
 
 def new_card_presented(uid: str):
     logging.info("new_card_presented : " + str(uid))
-    #keyboard = [[
-     #   InlineKeyboardButton('Ignora', callback_data=f'add_cancel_{uid}'),
-      #  InlineKeyboardButton('Aggiungi', callback_data=f'add_card_{uid}')]]
-
-    #reply_markup = InlineKeyboardMarkup(keyboard)
     _text = f'La \#tessera *{uid}* ha provato ad aprire la porta {command["hostname"]}, ma non è una tessera registrata\.'
-#    _text = f'La \#tessera *{uid}* ha provato ad aprire la porta, ma non è attiva\. Cosa faccio?'
     dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
-    #                            reply_markup=reply_markup,
                                 parse_mode=ParseMode.MARKDOWN_V2,
                                 text=_text)
 
 
 def disabled_card_presented(username: str, hostname: str):
     logging.info("disabled_card_presented : " + str(username) + " " + str(hostname))
-    #keyboard = [[
-    #    InlineKeyboardButton('Ignora',
-    #                         callback_data=f'discard_cancel_{username}'),
-    #    InlineKeyboardButton('Apri',
-    #                         callback_data=f'discard_open_{username}')]]
-    #reply_markup = InlineKeyboardMarkup(keyboard)
-    #_text = f'La \#tessera *{username}* ha provato ad aprire la porta {hostname}, ma è fuori orario\.\nCosa faccio?'
     _text = f'La \#tessera *{username}* ha provato ad aprire la porta {hostname}, ma è fuori orario\.'
     dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
-     #                           reply_markup=reply_markup,
                                 parse_mode=ParseMode.MARKDOWN_V2,
                                 text=_text)
-
-
-def add_user_prompt(query):
-    uid = query.data[len('add_card_'):]
-    keyboard = [
-        [InlineKeyboardButton('Annulla', callback_data=f'add_cancel_{uid}'), ],
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    query.edit_message_text(reply_markup=reply_markup,
-                            text=f'@{query.from_user.username} sta aggiungendo la #tessera {uid}. Che nome gli associo?\n(Rispondi a questo messaggio)'
-                            )
-
-
-def save_new_card(card_number, name_for_new_card):
-    adduser_mqtt(card_number, name_for_new_card)
-    # TODO save on file
 
 
 # MQTT
 
 def opendoor_mqtt(query):
-    DOORIP = query.data[len('open_confirm_'):]
-    if DOORIP == DOOR1_IP:
+    door_ip = query.data[len('open_confirm_'):]
+    if door_ip == DOOR1_IP:
         logging.info("opendoor_mqtt")
         _payload = json.dumps({'cmd': 'opendoor', 'doorip': DOOR1_IP})
         query.edit_message_text(
             text=f'@{query.from_user.username} ha aperto la porta EGEO16 da #remoto')
         return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
-
-    elif DOORIP == DOOR2_IP:
+    elif door_ip == DOOR2_IP:
         logging.info("opendoor_mqtt")
         _payload = json.dumps({'cmd': 'opendoor', 'doorip': DOOR2_IP})
         query.edit_message_text(
             text=f'@{query.from_user.username} ha aperto la porta INTERNA TOOLBOX da #remoto')
         return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
 
+
 def sync_bash():
     logging.info("sync_bash")
     os.system(WINDDOC_SYNC_PATH)
-    return
-
-def adduser_mqtt(uid: str, user: str, acctype: int = 0):
-    logging.info("adduser_mqtt: " + uid + ' ' + user)
-    end_of_the_year = datetime(datetime.now().year + 1, 1, 1).timestamp() - 59
-    _payload = json.dumps({
-        'cmd': 'adduser',
-        'doorip': ESPRFID_IP,
-        'uid': uid,
-        'user': user,
-        'acctype': acctype,
-        'validuntil': end_of_the_year
-    })
-    return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
 
 
 def on_mqtt_message(client, userdata, message):
