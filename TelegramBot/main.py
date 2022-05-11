@@ -29,26 +29,26 @@ load_dotenv(find_dotenv(dotenv_path, raise_error_if_not_found=True))
 
 MQTT_BROKER_IP = os.getenv('MQTT_BROKER_IP')
 if MQTT_BROKER_IP is None:
-    logging.error("MQTT_BROKER_IP not set in .env")
+    logging.error('MQTT_BROKER_IP not set in .env')
 DOOR1_IP = os.getenv('DOOR1_IP')
 if DOOR1_IP is None:
-    logging.error("DOOR1_IP not set in .env")
+    logging.error('DOOR1_IP not set in .env')
 DOOR2_IP = os.getenv('DOOR2_IP')
 if DOOR2_IP is None:
-    logging.error("DOOR2_IP not set in .env")
+    logging.error('DOOR2_IP not set in .env')
 TOKEN_TBOT = os.getenv('TOKEN_TBOT')
 if TOKEN_TBOT is None:
-    logging.error("token not set in .env")
+    logging.error('token not set in .env')
 CHAT_ID_TBOT = os.getenv('CHAT_ID_TBOT')
 if CHAT_ID_TBOT is None:
-    logging.error("CHATID_TBOT not set in .env")
+    logging.error('CHATID_TBOT not set in .env')
 CHAT_ID_TBOT = int(CHAT_ID_TBOT)
 ESPRFID_MQTT_TOPIC = os.getenv('ESPRFID_MQTT_TOPIC')
 if ESPRFID_MQTT_TOPIC is None:
-    logging.error("ESPRFID_MQTT_TOPIC not set in .env")
+    logging.error('ESPRFID_MQTT_TOPIC not set in .env')
 WINDDOC_SYNC_PATH = os.getenv('WINDDOC_SYNC_PATH')
 if WINDDOC_SYNC_PATH is None:
-    logging.error("WINDDOC_SYNC_PATH not set in .env")
+    logging.error('WINDDOC_SYNC_PATH not set in .env')
 
 
 mqttClient = mqtt.Client('TelegramBot')
@@ -146,24 +146,27 @@ def tbot_setup():
 
 
 def access_allowed(command):
-    logging.info("open to : " + str(command))
+    if command["username"] == 'MQTT':
+        logging.info('[MQTT] opendoor')
+    else:
+        logging.info('open to : ' + str(command))
     dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
                                 text=f'{command["username"]} ha aperto la porta {command["hostname"]} con la #tessera')
 
 
-def new_card_presented(uid: str):
-    logging.info("new_card_presented : " + str(uid))
-    _text = f'La \#tessera *{uid}* ha provato ad aprire la porta {command["hostname"]}, ma non è una tessera registrata\.'
+def new_card_presented(uid: str, hostname: str):
+    logging.info('new_card_presented : ' + str(uid))
+    _text = f'La #tessera <b>{uid}</b> ha provato ad aprire la porta {hostname}, ma non è una tessera registrata.'
     dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
-                                parse_mode=ParseMode.MARKDOWN_V2,
+                                parse_mode=ParseMode.HTML,
                                 text=_text)
 
 
 def disabled_card_presented(username: str, hostname: str):
-    logging.info("disabled_card_presented : " + str(username) + " " + str(hostname))
-    _text = f'La \#tessera *{username}* ha provato ad aprire la porta {hostname}, ma è fuori orario\.'
+    logging.info('disabled_card_presented : ' + str(username) + ' ' + str(hostname))
+    _text = f'La #tessera <b>{username}</b> ha provato ad aprire la porta {hostname}, ma l\'accesso non è consentito.'
     dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
-                                parse_mode=ParseMode.MARKDOWN_V2,
+                                parse_mode=ParseMode.HTML,
                                 text=_text)
 
 
@@ -172,13 +175,13 @@ def disabled_card_presented(username: str, hostname: str):
 def opendoor_mqtt(query):
     door_ip = query.data[len('open_confirm_'):]
     if door_ip == DOOR1_IP:
-        logging.info("opendoor_mqtt")
+        logging.info('opendoor_mqtt')
         _payload = json.dumps({'cmd': 'opendoor', 'doorip': DOOR1_IP})
         query.edit_message_text(
             text=f'@{query.from_user.username} ha aperto la porta EGEO16 da #remoto')
         return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
     elif door_ip == DOOR2_IP:
-        logging.info("opendoor_mqtt")
+        logging.info('opendoor_mqtt')
         _payload = json.dumps({'cmd': 'opendoor', 'doorip': DOOR2_IP})
         query.edit_message_text(
             text=f'@{query.from_user.username} ha aperto la porta INTERNA TOOLBOX da #remoto')
@@ -186,7 +189,7 @@ def opendoor_mqtt(query):
 
 
 def sync_bash():
-    logging.info("sync_bash")
+    logging.info('sync_bash')
     os.system(WINDDOC_SYNC_PATH)
 
 
@@ -196,69 +199,28 @@ def on_mqtt_message(client, userdata, message):
     try:
         _json = json.loads(message.payload)
     except BaseException as e:
+        logging.error('JSON parsing error')
         logging.error(e)
         return
 
-    if message.topic == ESPRFID_MQTT_TOPIC:  # loopback
-        pass
+    _type = _json.get('type')
+    _access = _json.get('access')
+    _is_known = _json.get('isKnown')
 
-    elif message.topic == ESPRFID_MQTT_TOPIC + '/send':
-        _type = _json.get('type')
-        _cmd = _json.get('cmd')
-        if _type == 'access':
-            _access = _json.get('access')
-            _is_know = _json.get('isKnown')
-            if _is_know == 'true':
-                if _access in ['Admin', 'Always']:
-                    access_allowed(_json)
-                    return
-                elif _access == 'Disabled':
-                    disabled_card_presented(_json.get('username'), _json.get('hostname'))
-                    return
-                else:
-                    logging.warning(_i + "access '%s' non gestito ", _access)
-            elif _is_know == 'false':
-                new_card_presented(_json.get('uid'))
-                return
-            else:
-                logging.warning(_i + "isKnow '%s' non gestito ", _is_know)
-        elif _type == 'WARN':
-            pass
-        elif _type == 'INFO':
-            logging.info(_i + "INFO " + _json.get('src'))
-        elif _cmd == 'opendoor':
-            logging.info(_i + "opendoor")
-            return
-        elif _cmd == 'listusr':
-            pass
-        elif _cmd == 'deletusers':
-            pass
-        elif _cmd == 'deletuid':
-            pass
-        elif _cmd == 'adduser':
-            pass
-        elif _json.get('command') == 'userfile':
-            pass
-        else:
-            logging.warning(_i + "type '%s' and cmd '%s' non gestiti",
-                            _type, _cmd)
-    elif message.topic == ESPRFID_MQTT_TOPIC + '/send':
-        _type = _json.get('type')
-        if _type == 'heartbeat':  # heartbeat
-            pass
-        else:
-            logging.warning(_i + "TOPIC '%s' non gestito", message.topic)
-    elif message.topic == ESPRFID_MQTT_TOPIC + '/accesslist':
-        logging.warning(_i + "TOPIC '%s' non gestito", message.topic)
-    else:
-        logging.warning(_i + "TOPIC '%s' non gestito", message.topic)
-    logging.info(_i + "TOPIC: '%s', PAYLOAD: '%s'", message.topic,
-                 message.payload)
-
+    if _type == 'access':
+        if _is_known == 'true':
+            if _access in ['Admin', 'Always']:
+                access_allowed(_json)
+            elif _access == 'Disabled':
+                disabled_card_presented(_json.get('username'), _json.get('hostname'))
+        elif _is_known == 'false':
+            new_card_presented(_json.get('uid'), _json.get('hostname'))
+    elif _type == 'INFO':
+        logging.info(_i + 'INFO ' + _json.get('src'))
 
 def mqtt_setup():
     """ MQTT setup """
-    logging.info("start MQTT setup")
+    logging.info('start MQTT setup')
 
     attempts = 5
     while attempts:
@@ -270,12 +232,9 @@ def mqtt_setup():
         attempts -= 1
         time.sleep(0.1)
     mqttClient.loop_start()
-    mqttClient.subscribe(ESPRFID_MQTT_TOPIC)
     mqttClient.subscribe(ESPRFID_MQTT_TOPIC + '/send')
-    mqttClient.subscribe(ESPRFID_MQTT_TOPIC + '/sync')
-    mqttClient.subscribe(ESPRFID_MQTT_TOPIC + '/accesslist')
     mqttClient.on_message = on_mqtt_message
-    logging.debug("end MQTT setup")
+    logging.debug('end MQTT setup')
 
 
 def main() -> None:
