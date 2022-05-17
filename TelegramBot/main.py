@@ -265,7 +265,13 @@ def adduser_mqtt(uid: str, user: str, acctype: int = 0):
 
 def on_mqtt_message(client, userdata, message):
     _i = '[MQTT] '
-    last_mqtt_message = time.time()
+    message_time = time.time()
+
+    # we skip multiple messages with the same timestamp
+    if message_time == last_mqtt_message:
+        return
+
+    last_mqtt_message = message_time
     try:
         _json = json.loads(message.payload)
     except BaseException as e:
