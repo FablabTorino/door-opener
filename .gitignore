@@ -2,3 +2,5 @@
 .idea/
 .env
 WindDocSync/sync.json
+WindDocSync/.envsync
+TelegramBot/doorbot.log

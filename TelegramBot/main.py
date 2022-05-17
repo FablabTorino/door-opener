@@ -29,21 +29,27 @@ load_dotenv(find_dotenv(dotenv_path, raise_error_if_not_found=True))
 
 MQTT_BROKER_IP = os.getenv('MQTT_BROKER_IP')
 if MQTT_BROKER_IP is None:
-    logging.error("MQTT_BROKER_IP not set in .env")
-ESPRFID_IP = os.getenv('ESPRFID_IP')
-
-if ESPRFID_IP is None:
-    logging.error("ESPRFID_IP not set in .env")
+    logging.error('MQTT_BROKER_IP not set in .env')
+DOOR1_IP = os.getenv('DOOR1_IP')
+if DOOR1_IP is None:
+    logging.error('DOOR1_IP not set in .env')
+DOOR2_IP = os.getenv('DOOR2_IP')
+if DOOR2_IP is None:
+    logging.error('DOOR2_IP not set in .env')
 TOKEN_TBOT = os.getenv('TOKEN_TBOT')
 if TOKEN_TBOT is None:
-    logging.error("token not set in .env")
+    logging.error('token not set in .env')
 CHAT_ID_TBOT = os.getenv('CHAT_ID_TBOT')
 if CHAT_ID_TBOT is None:
-    logging.error("CHATID_TBOT not set in .env")
+    logging.error('CHATID_TBOT not set in .env')
 CHAT_ID_TBOT = int(CHAT_ID_TBOT)
 ESPRFID_MQTT_TOPIC = os.getenv('ESPRFID_MQTT_TOPIC')
 if ESPRFID_MQTT_TOPIC is None:
-    logging.error("ESPRFID_MQTT_TOPIC not set in .env")
+    logging.error('ESPRFID_MQTT_TOPIC not set in .env')
+WINDDOC_SYNC_PATH = os.getenv('WINDDOC_SYNC_PATH')
+if WINDDOC_SYNC_PATH is None:
+    logging.error('WINDDOC_SYNC_PATH not set in .env')
+
 
 mqttClient = mqtt.Client('TelegramBot')
 last_mqtt_message = time.time()
@@ -63,11 +69,13 @@ def open_command(update: Update, context: CallbackContext) -> None:
     keyboard = [
         [
             InlineKeyboardButton('Annulla', callback_data='open_cancel'),
-            InlineKeyboardButton('Apri', callback_data='open_confirm'),
+            InlineKeyboardButton('Apri EGEO16', callback_data=f'open_confirm_{DOOR1_IP}'),
+            InlineKeyboardButton('Apri INTERNO TOOLBOX', callback_data=f'open_confirm_{DOOR2_IP}'),
         ]
     ]
     update.message.reply_text('Sicuro che devo aprire la porta?',
                               reply_markup=InlineKeyboardMarkup(keyboard))
+
 
 def sync_command(update: Update, context: CallbackContext) -> None:
     keyboard = [
@@ -80,8 +88,6 @@ def sync_command(update: Update, context: CallbackContext) -> None:
                               reply_markup=InlineKeyboardMarkup(keyboard))
 
 
-
-
 def unknown_command(update, context) -> None:
     context.bot.send_message(chat_id=update.effective_chat.id,
                              text='Ops, comando non riconosciuto')
@@ -91,10 +97,8 @@ def callback_message(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
 
-    if query.data == 'open_confirm':
-        query.edit_message_text(
-            text=f'@{query.from_user.username} ha aperto la porta da #remoto')
-        opendoor_mqtt()
+    if query.data.startswith ('open_confirm'):
+        opendoor_mqtt(query)
     elif query.data == 'open_cancel':
         query.edit_message_text(
             text=f'Tentativo di @{query.message.reply_to_message.from_user.username} di aprire la porta annullato da @{query.from_user.username}')
@@ -109,51 +113,9 @@ def callback_message(update: Update, context: CallbackContext) -> None:
         query.edit_message_text(
             text=f'@{query.from_user.username} ha aperto alla #tessera {query.data[len("open_card_"):]}')
         opendoor_mqtt()
-    elif query.data.startswith('add_cancel'):
-        query.edit_message_text(
-            text=f'@{query.from_user.username} ha ignorato la #tessera {query.data[len("add_cancel_"):]}')
-    elif query.data.startswith('add_card'):
-        add_user_prompt(query)
-    elif query.data.startswith('discard_open_'):
-        query.edit_message_text(
-            f'@{query.from_user.username} ha aperto alla #tessera {query.data[len("discard_open_"):]}')
-        opendoor_mqtt()
-    elif query.data.startswith('discard_cancel_'):
-        query.edit_message_text(
-            f'@{query.from_user.username} ha ignorato la #tessera di {query.data[len("discard_cancel_"):]}')
     else:
         query.edit_message_text(
             text=f'Risposta non riconosciuta, comando annullato.')
-
-
-def text_message(update: Update, context: CallbackContext) -> None:
-    name_for_new_card = update.message.text
-    sent_from = update.message.from_user.username
-    reply_to = update.message.reply_to_message
-
-    if reply_to is None:  # or len(reply_to.entities) != 2:
-        return
-
-    reply_to_text = reply_to.text
-    original_user = reply_to_text[
-                    reply_to.entities[0].offset + 1:reply_to.entities[
-                        0].length]
-    if original_user != sent_from:
-        return
-
-    card_number_match = re.match('.+(?=\\.)',
-                                 reply_to_text[
-                                 reply_to.entities[1].offset +
-                                 reply_to.entities[1].length + 1:])
-    if card_number_match is None:
-        return
-    card_number = card_number_match.group()
-
-    dispatcher.bot.edit_message_text(chat_id=CHAT_ID_TBOT,
-                                     message_id=reply_to.message_id,
-                                     text=f'@{sent_from} ha aggiunto {name_for_new_card} #tessera {card_number}')
-
-    save_new_card(card_number, name_for_new_card)
 
 
 def unknown_chat(update: Update, context: CallbackContext):
@@ -175,9 +137,6 @@ def tbot_setup():
         Filters.command & chat_filter, unknown_command))
     # Callback from Inline Keyboard
     dispatcher.add_handler(CallbackQueryHandler(callback_message))
-    # Other messages
-    dispatcher.add_handler(MessageHandler(
-        ~Filters.command & chat_filter, text_message))
     # Other chat
     dispatcher.add_handler(MessageHandler(
         ~Filters.chat(CHAT_ID_TBOT), unknown_chat))
@@ -187,80 +146,51 @@ def tbot_setup():
 
 
 def access_allowed(command):
-    logging.info("open to : " + str(command))
+    if command["username"] == 'MQTT':
+        logging.info('[MQTT] opendoor')
+    else:
+        logging.info('open to : ' + str(command))
     dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
-                                text=f'{command["username"]} ha aperto la porta con la #tessera')
+                                text=f'{command["username"]} ha aperto la porta {command["hostname"]} con la #tessera')
 
 
-def new_card_presented(uid: str):
-    logging.info("new_card_presented : " + str(uid))
-    keyboard = [[
-        InlineKeyboardButton('Ignora', callback_data=f'add_cancel_{uid}'),
-        InlineKeyboardButton('Aggiungi', callback_data=f'add_card_{uid}')]]
-
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    _text = f'La \#tessera *{uid}* ha provato ad aprire la porta, ma non è attiva\. Cosa faccio?'
+def new_card_presented(uid: str, hostname: str):
+    logging.info('new_card_presented : ' + str(uid))
+    _text = f'La #tessera <b>{uid}</b> ha provato ad aprire la porta {hostname}, ma non è una tessera registrata.'
     dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
-                                reply_markup=reply_markup,
-                                parse_mode=ParseMode.MARKDOWN_V2,
+                                parse_mode=ParseMode.HTML,
                                 text=_text)
 
 
-def disabled_card_presented(username: str):
-    logging.info("disabled_card_presented : " + str(username))
-    keyboard = [[
-        InlineKeyboardButton('Ignora',
-                             callback_data=f'discard_cancel_{username}'),
-        InlineKeyboardButton('Apri',
-                             callback_data=f'discard_open_{username}')]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    _text = f'La \#tessera *{username}* ha provato ad aprire la porta, ma non è abilitata\.\nCosa faccio?'
+def disabled_card_presented(username: str, hostname: str):
+    logging.info('disabled_card_presented : ' + str(username) + ' ' + str(hostname))
+    _text = f'La #tessera <b>{username}</b> ha provato ad aprire la porta {hostname}, ma l\'accesso non è consentito.'
     dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
-                                reply_markup=reply_markup,
-                                parse_mode=ParseMode.MARKDOWN_V2,
+                                parse_mode=ParseMode.HTML,
                                 text=_text)
-
-
-def add_user_prompt(query):
-    uid = query.data[len('add_card_'):]
-    keyboard = [
-        [InlineKeyboardButton('Annulla', callback_data=f'add_cancel_{uid}'), ],
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    query.edit_message_text(reply_markup=reply_markup,
-                            text=f'@{query.from_user.username} sta aggiungendo la #tessera {uid}. Che nome gli associo?\n(Rispondi a questo messaggio)'
-                            )
-
-
-def save_new_card(card_number, name_for_new_card):
-    adduser_mqtt(card_number, name_for_new_card)
-    # TODO save on file
 
 
 # MQTT
 
-def opendoor_mqtt():
-    logging.info("opendoor_mqtt")
-    _payload = json.dumps({'cmd': 'opendoor', 'doorip': ESPRFID_IP})
-    return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
+def opendoor_mqtt(query):
+    door_ip = query.data[len('open_confirm_'):]
+    if door_ip == DOOR1_IP:
+        logging.info('opendoor_mqtt')
+        _payload = json.dumps({'cmd': 'opendoor', 'doorip': DOOR1_IP})
+        query.edit_message_text(
+            text=f'@{query.from_user.username} ha aperto la porta EGEO16 da #remoto')
+        return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
+    elif door_ip == DOOR2_IP:
+        logging.info('opendoor_mqtt')
+        _payload = json.dumps({'cmd': 'opendoor', 'doorip': DOOR2_IP})
+        query.edit_message_text(
+            text=f'@{query.from_user.username} ha aperto la porta INTERNA TOOLBOX da #remoto')
+        return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
+
 
 def sync_bash():
-    logging.info("sync_bash")
-    os.system("bash /home/pi/WindDocSync/sync.sh")
-    return
-
-def adduser_mqtt(uid: str, user: str, acctype: int = 0):
-    logging.info("adduser_mqtt: " + uid + ' ' + user)
-    end_of_the_year = datetime(datetime.now().year + 1, 1, 1).timestamp() - 59
-    _payload = json.dumps({
-        'cmd': 'adduser',
-        'doorip': ESPRFID_IP,
-        'uid': uid,
-        'user': user,
-        'acctype': acctype,
-        'validuntil': end_of_the_year
-    })
-    return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
+    logging.info('sync_bash')
+    os.system(WINDDOC_SYNC_PATH)
 
 
 def on_mqtt_message(client, userdata, message):
@@ -275,69 +205,28 @@ def on_mqtt_message(client, userdata, message):
     try:
         _json = json.loads(message.payload)
     except BaseException as e:
+        logging.error('JSON parsing error')
         logging.error(e)
         return
 
-    if message.topic == ESPRFID_MQTT_TOPIC:  # loopback
-        pass
+    _type = _json.get('type')
+    _access = _json.get('access')
+    _is_known = _json.get('isKnown')
 
-    elif message.topic == ESPRFID_MQTT_TOPIC + '/send':
-        _type = _json.get('type')
-        _cmd = _json.get('cmd')
-        if _type == 'access':
-            _access = _json.get('access')
-            _is_know = _json.get('isKnown')
-            if _is_know == 'true':
-                if _access in ['Admin', 'Always']:
-                    access_allowed(_json)
-                    return
-                elif _access == 'Disabled':
-                    disabled_card_presented(_json.get('username'))
-                    return
-                else:
-                    logging.warning(_i + "access '%s' non gestito ", _access)
-            elif _is_know == 'false':
-                new_card_presented(_json.get('uid'))
-                return
-            else:
-                logging.warning(_i + "isKnow '%s' non gestito ", _is_know)
-        elif _type == 'WARN':
-            pass
-        elif _type == 'INFO':
-            logging.info(_i + "INFO " + _json.get('src'))
-        elif _cmd == 'opendoor':
-            logging.info(_i + "opendoor")
-            return
-        elif _cmd == 'listusr':
-            pass
-        elif _cmd == 'deletusers':
-            pass
-        elif _cmd == 'deletuid':
-            pass
-        elif _cmd == 'adduser':
-            pass
-        elif _json.get('command') == 'userfile':
-            pass
-        else:
-            logging.warning(_i + "type '%s' and cmd '%s' non gestiti",
-                            _type, _cmd)
-    elif message.topic == ESPRFID_MQTT_TOPIC + '/send':
-        _type = _json.get('type')
-        if _type == 'heartbeat':  # heartbeat
-            pass
-        else:
-            logging.warning(_i + "TOPIC '%s' non gestito", message.topic)
-    elif message.topic == ESPRFID_MQTT_TOPIC + '/accesslist':
-        logging.warning(_i + "TOPIC '%s' non gestito", message.topic)
-    else:
-        logging.warning(_i + "TOPIC '%s' non gestito", message.topic)
-    logging.info(_i + "TOPIC: '%s', PAYLOAD: '%s'", message.topic,
-                 message.payload)
-
+    if _type == 'access':
+        if _is_known == 'true':
+            if _access in ['Admin', 'Always']:
+                access_allowed(_json)
+            elif _access == 'Disabled':
+                disabled_card_presented(_json.get('username'), _json.get('hostname'))
+        elif _is_known == 'false':
+            new_card_presented(_json.get('uid'), _json.get('hostname'))
+    elif _type == 'INFO':
+        logging.info(_i + 'INFO ' + _json.get('src'))
 
 def mqtt_setup():
     """ MQTT setup """
-    logging.info("start MQTT setup")
+    logging.info('start MQTT setup')
 
     attempts = 5
     while attempts:
@@ -349,12 +238,9 @@ def mqtt_setup():
         attempts -= 1
         time.sleep(0.1)
     mqttClient.loop_start()
-    mqttClient.subscribe(ESPRFID_MQTT_TOPIC)
     mqttClient.subscribe(ESPRFID_MQTT_TOPIC + '/send')
-    mqttClient.subscribe(ESPRFID_MQTT_TOPIC + '/sync')
-    mqttClient.subscribe(ESPRFID_MQTT_TOPIC + '/accesslist')
     mqttClient.on_message = on_mqtt_message
-    logging.debug("end MQTT setup")
+    logging.debug('end MQTT setup')
 
 
 def main() -> None:
