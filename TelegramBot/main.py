@@ -161,6 +161,40 @@ def new_card_presented(uid: str, hostname: str):
                                 parse_mode=ParseMode.HTML,
                                 text=_text)
 
+def boot_device( hostname: str):
+    logging.info('Device boot : ' + str(hostname))
+    _text = f'Il dispositivo {hostname} si è avviato!'
+    dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
+                                parse_mode=ParseMode.HTML,
+                                text=_text)
+
+def enabling_wifi( hostname: str):
+    logging.info('Il dispositivo ' + str(hostname) + ' si è riconnesso al wifi!')
+    _text = f'Il dispositivo {hostname} si è riconnesso al wifi!'
+    dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
+                                parse_mode=ParseMode.HTML,
+                                text=_text)
+
+def login_attemp( data: str, hostname: str):
+    logging.info('Il dispositivo ' + str(data) + ' ha tentato di connettersi al device ' + str(hostname))
+    _text = f'Il dispositivo {data} ha tentato di connettersi al device {hostname}'
+    dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
+                                parse_mode=ParseMode.HTML,
+                                text=_text)
+
+def login_success( data: str, hostname: str):
+    logging.info('Il dispositivo ' + str(data) + ' si è collegato al device ' + str(hostname) + ' via interfaccia web')
+    _text = f'Il dispositivo {data} si è collegato al device {hostname} via interfaccia web'
+    dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
+                                parse_mode=ParseMode.HTML,
+                                text=_text)
+
+def config_change( hostname: str):
+    logging.info('La configurazione del dispositivo ' + str(hostname) + ' è stata modificata!')
+    _text = f'La configurazione del dispositivo {hostname} è stata salvata'
+    dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
+                                parse_mode=ParseMode.HTML,
+                                text=_text)
 
 def disabled_card_presented(username: str, hostname: str):
     logging.info('disabled_card_presented : ' + str(username) + ' ' + str(hostname))
@@ -206,6 +240,8 @@ def on_mqtt_message(client, userdata, message):
     _type = _json.get('type')
     _access = _json.get('access')
     _is_known = _json.get('isKnown')
+    _src = _json.get('src')
+    _desc = _json.get('desc')
 
     if _type == 'access':
         if _is_known == 'true':
@@ -217,6 +253,25 @@ def on_mqtt_message(client, userdata, message):
             new_card_presented(_json.get('uid'), _json.get('hostname'))
     elif _type == 'INFO':
         logging.info(_i + 'INFO ' + _json.get('src'))
+        if _src == 'websrv':
+            if _desc == 'Login success!':
+                login_success(_json.get('data'), _json.get('hostname'))
+        elif _src == 'sys':
+            if _desc == 'Config stored in the SPIFFS':
+                config_change (_json.get('hostname'))
+        elif _src == 'wifi':
+            if _desc == 'Enabling WiFi':
+                enabling_wifi(_json.get('hostname'))
+    elif _type == 'boot':
+        boot_device(_json.get('hostname'))
+    elif _type == 'WARN':
+        if _src == 'websrv':
+            if _desc == 'New login attempt':
+                login_attemp(_json.get('data'), _json.get('hostname'))
+        elif _src == 'sys':
+            if _desc == 'Config stored in the SPIFFS':
+                config_change (_json.get('hostname'))
+    
 
 def mqtt_setup():
     """ MQTT setup """
