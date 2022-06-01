@@ -66,6 +66,7 @@ def mqtt_send_user(user):
       'uid': card_number_to_wiegand_format(user['cardNumber']),
       'user': user['fullName'],
       'acctype': user['accessLevel'],
+      'acctype2': user['accessLevel'],
       'pincode': pincode,
       'validuntil': user['validUntil']
   }))
