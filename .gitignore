@@ -3,4 +3,6 @@
 .env
 WindDocSync/sync.json
 WindDocSync/.envsync
+WindDocSync/pysync.log
+WindDocSync/pysync.json
 TelegramBot/doorbot.log
