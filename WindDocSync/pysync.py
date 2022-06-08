@@ -65,18 +65,26 @@ q_firstpage = urlencode(firstpage)
 r = requests.post(URL, headers=headers, data=q_firstpage)
 
 f_json = open("./WindDocSync/pysync.json", "w")
-f_json.write(r.text) 
+jsonData = json.loads(r.content)
+paginautenti = jsonData['lista']
+c_json = str(paginautenti).strip('[]').strip('[]').strip('"')
+utenti = json.dumps(eval(c_json))
+f_json.write(utenti) 
 
-returnedData = json.loads(r.content)
-num_pages = returnedData['numero_pagine']
+num_pages = jsonData['numero_pagine']
 logging.info("Pagina: 1/" + str(num_pages) + " CODE:" + str(r.status_code))
 for page in range(2,num_pages-1):
     otherpages = {"method":"associazioni_soci_listaCercaSV","request":{"token_key":{"token":TOKEN, "token_app":TOKEN_APP},"query":"","pagina":page}}
     otherpages = http_build_query(otherpages, False, '[', ']')
     q_otherpages = urlencode(otherpages)
     r1 = requests.post(URL, headers=headers, data=q_otherpages)
+    jsonData = json.loads(r1.content)
+    paginautenti = jsonData['lista']
+    c_json = str(paginautenti).strip('[]').strip('[]').strip('"')
+    utenti = json.dumps(eval(c_json))
+    f_json.write(utenti) 
     logging.info("Pagina: " + str(page) + "/" + str(num_pages)+ " CODE:" + str(r1.status_code))
-    f_json.write(r.text)
+    
     
 f_json.close()
 logging.info("END SYNC")

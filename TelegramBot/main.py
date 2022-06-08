@@ -1,3 +1,4 @@
+from xxlimited import new
 import telegram
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, \
     InlineQueryResultArticle, ParseMode, InputTextMessageContent, ParseMode
@@ -14,7 +15,12 @@ import paho.mqtt.client as mqtt
 import logging
 import re
 import time
-from datetime import datetime
+import datetime
+import requests
+from requests.structures import CaseInsensitiveDict
+from collections.abc import MutableMapping
+from urllib.parse import urlencode, unquote
+
 
 logging_path = join(os.getcwd(), dirname(__file__), 'doorbot.log')
 logging.basicConfig(
@@ -49,7 +55,80 @@ if ESPRFID_MQTT_TOPIC is None:
 WINDDOC_SYNC_PATH = os.getenv('WINDDOC_SYNC_PATH')
 if WINDDOC_SYNC_PATH is None:
     logging.error('WINDDOC_SYNC_PATH not set in .env')
+TOKEN = os.getenv('WINDDOC_TOKEN')
+if TOKEN is None:
+    logging.error("WINDDOC_TOKEN not set in .env")
+TOKEN_APP = os.getenv('WINDDOC_TOKEN_APP')
+if TOKEN_APP is None:
+    logging.error("WINDDOC_TOKEN_APP not set in .env")
 
+URL = "https://app.winddoc.com/v1/api_json.php";
+
+def wiegand_format_to_card_number(wiegand: str) -> str:
+  hex_string = wiegand.zfill(8)
+  hex_data = bytearray.fromhex(hex_string)
+  hex_data.reverse()
+  return hex_data.hex()
+
+def http_build_query(dictionary, parent_key=False, separator='.', separator_suffix=''):
+    """
+    Turn a nested dictionary into a flattened dictionary
+    :param dictionary: The dictionary to flatten
+    :param parent_key: The string to prepend to dictionary's keys
+    :param separator: The string used to separate flattened keys
+    :return: A flattened dictionary
+    """
+
+    items = []
+    for key, value in dictionary.items():
+        new_key = str(parent_key) + separator + key + separator_suffix if parent_key else key
+        if isinstance(value, MutableMapping):
+            items.extend(http_build_query(value, new_key, separator, separator_suffix).items())
+        elif isinstance(value, list) or isinstance(value, tuple):
+            for k, v in enumerate(value):
+                items.extend(http_build_query({str(k): v}, new_key, separator, separator_suffix).items())
+        else:
+            items.append((new_key, value))
+    return dict(items)
+
+def WindDoc_search( uid: str, hostname: str):
+    headers = CaseInsensitiveDict()
+    headers["accept"] = "application/json"
+    headers["Content-Type"] = "application/x-www-form-urlencoded"
+
+    cercasocio = {"method":"associazioni_soci_lista","request":{"token_key":{"token":TOKEN, "token_app":TOKEN_APP},"query": "campo1 like '"+ wiegand_format_to_card_number(uid) +"%'"}}
+    cercasocio = http_build_query(cercasocio, False, '[', ']')
+    q_cercasocio = urlencode(cercasocio)
+
+    r = requests.post(URL, headers=headers, data=q_cercasocio)
+    returnedData = json.loads(r.content)
+    selectlista = returnedData['lista']
+    filterdata = str(selectlista).strip('[]').strip('"')
+    if not len(filterdata) == 0:
+        newlist = json.dumps(eval(filterdata))
+
+        utente = json.loads(newlist)
+        
+        if utente['stato_socio'] == "3" or utente['deve_rinnovare'] == True :
+            subs_not_renewed(utente['contatto_nome'] + " " + utente['contatto_cognome'], hostname)
+        else:
+            pincode = utente['campo6']
+
+            if utente['campo2']== '1':
+                acctype = '99'
+            else:
+                acctype = '1'
+            
+            if re.match(r'[0-9]?([0-9])\1\1+', utente['campo6'], re.M) is not None:
+                pincode = 'xxxx'
+           
+            if re.match(r'\d{4}', utente['campo6']) is None:
+                pincode = 'xxxx' 
+            date=datetime.datetime.strptime(str(utente['data_scadenza_rinnovo']),"%Y-%m-%d")
+            date=date.timestamp()
+            adduser_mqtt(wiegand_format_to_card_number(uid),utente['contatto_nome'] + " " + utente['contatto_cognome'],acctype,pincode,int(round(date)))
+    else:
+        new_card_presented(uid,hostname)
 
 mqttClient = mqtt.Client('TelegramBot')
 last_mqtt_message = time.time()
@@ -203,6 +282,13 @@ def disabled_card_presented(username: str, hostname: str):
                                 parse_mode=ParseMode.HTML,
                                 text=_text)
 
+def subs_not_renewed(uid: str, hostname: str):
+    logging.info('Utente ' + str(uid) + ' con tessera scaduta ha tentato di accedere da ' + str(hostname))
+    _text = f'La #tessera <b>{uid}</b> ha provato ad aprire la porta {hostname}, ma non ha rinnovato la quota associativa.'
+    dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
+                                parse_mode=ParseMode.HTML,
+                                text=_text)
+
 
 # MQTT
 
@@ -221,6 +307,15 @@ def opendoor_mqtt(query):
             text=f'@{query.from_user.username} ha aperto la porta INTERNA TOOLBOX da #remoto')
         return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
 
+def adduser_mqtt(uid: str, user: str, acctype: str, pincode: str, validuntil: str):
+    logging.info('Utente ' + str(uid) + ' con tessera valida trovato su Winddoc lo aggiungo alle porte'))
+    _payload = json.dumps({'cmd': 'adduser', 'doorip': DOOR1_IP, 'uid': str(uid), "user": str(user) , "acctype": str(acctype), "pincode": str(pincode), "validuntil": str(validuntil)})
+    _text = f'Utente {user} presente su WindDoc ma non  sulle porte, lo aggiungo'
+    dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
+                                parse_mode=ParseMode.HTML,
+                                text=_text)
+    return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
+    
 
 def sync_bash():
     logging.info('sync_bash')
@@ -256,7 +351,7 @@ def on_mqtt_message(client, userdata, message):
             elif _access == 'Disabled':
                 disabled_card_presented(_json.get('username'), _json.get('hostname'))
         elif _is_known == 'false':
-            new_card_presented(_json.get('uid'), _json.get('hostname'))
+            WindDoc_search(_json.get('uid'), _json.get('hostname'))
     elif _type == 'INFO':
         logging.info(_i + 'INFO ' + _json.get('src'))
         if _src == 'websrv':
