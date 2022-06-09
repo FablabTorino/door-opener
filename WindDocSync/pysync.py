@@ -58,7 +58,7 @@ headers = CaseInsensitiveDict()
 headers["accept"] = "application/json"
 headers["Content-Type"] = "application/x-www-form-urlencoded"
 
-firstpage = {"method":"associazioni_soci_listaCercaSV","request":{"token_key":{"token":TOKEN, "token_app":TOKEN_APP},"query":""}}
+firstpage = {"method":"associazioni_soci_listaCercaSV","request":{"token_key":{"token":TOKEN, "token_app":TOKEN_APP},"query":"", "limit_to": 5000}}
 firstpage = http_build_query(firstpage, False, '[', ']')
 q_firstpage = urlencode(firstpage)
 
@@ -71,20 +71,6 @@ c_json = str(paginautenti).strip('[]').strip('[]').strip('"')
 utenti = json.dumps(eval(c_json))
 f_json.write(utenti) 
 
-num_pages = jsonData['numero_pagine']
-logging.info("Pagina: 1/" + str(num_pages) + " CODE:" + str(r.status_code))
-for page in range(2,num_pages-1):
-    otherpages = {"method":"associazioni_soci_listaCercaSV","request":{"token_key":{"token":TOKEN, "token_app":TOKEN_APP},"query":"","pagina":page}}
-    otherpages = http_build_query(otherpages, False, '[', ']')
-    q_otherpages = urlencode(otherpages)
-    r1 = requests.post(URL, headers=headers, data=q_otherpages)
-    jsonData = json.loads(r1.content)
-    paginautenti = jsonData['lista']
-    c_json = str(paginautenti).strip('[]').strip('[]').strip('"')
-    utenti = json.dumps(eval(c_json))
-    f_json.write(utenti) 
-    logging.info("Pagina: " + str(page) + "/" + str(num_pages)+ " CODE:" + str(r1.status_code))
-    
     
 f_json.close()
 logging.info("END SYNC")
