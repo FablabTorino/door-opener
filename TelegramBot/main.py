@@ -126,7 +126,7 @@ def WindDoc_search( uid: str, hostname: str):
                 pincode = 'xxxx' 
             date=datetime.datetime.strptime(str(utente['data_scadenza_rinnovo']),"%Y-%m-%d")
             date=date.timestamp()
-            adduser_mqtt(wiegand_format_to_card_number(uid),utente['contatto_nome'] + " " + utente['contatto_cognome'],acctype,pincode,int(round(date)))
+            adduser_mqtt(uid,utente['contatto_nome'] + " " + utente['contatto_cognome'],acctype,pincode,int(round(date)))
     else:
         new_card_presented(uid,hostname)
 
