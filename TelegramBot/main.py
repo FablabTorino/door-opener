@@ -91,7 +91,7 @@ def http_build_query(dictionary, parent_key=False, separator='.', separator_suff
             items.append((new_key, value))
     return dict(items)
 
-def WindDoc_search( uid: str, hostname: str):
+def WindDoc_search( uid: str, hostname: str, syncpin: bool):
     headers = CaseInsensitiveDict()
     headers["accept"] = "application/json"
     headers["Content-Type"] = "application/x-www-form-urlencoded"
@@ -101,12 +101,15 @@ def WindDoc_search( uid: str, hostname: str):
     q_cercasocio = urlencode(cercasocio)
 
     r = requests.post(URL, headers=headers, data=q_cercasocio)
-    returnedData = json.loads(r.content)
-    selectlista = returnedData['lista']
-    filterdata = str(selectlista).strip('[]').strip('"')
+    if json.loads(r.content) is not None:
+        returnedData = json.loads(r.content)
+        selectlista = returnedData['lista']
+        filterdata = str(selectlista).strip('[]').strip('"')
+    else:
+        return new_card_presented(uid,hostname)
+
     if not len(filterdata) == 0:
         newlist = json.dumps(eval(filterdata))
-
         utente = json.loads(newlist)
         
         if utente['stato_socio'] == "3" or utente['deve_rinnovare'] == True :
@@ -121,12 +124,14 @@ def WindDoc_search( uid: str, hostname: str):
             
             if re.match(r'[0-9]?([0-9])\1\1+', utente['campo6'], re.M) is not None:
                 pincode = 'xxxx'
-           
+            
             if re.match(r'\d{4}', utente['campo6']) is None:
                 pincode = 'xxxx' 
+                
             date=datetime.datetime.strptime(str(utente['data_scadenza_rinnovo']),"%Y-%m-%d")
             date=date.timestamp()
-            adduser_mqtt(uid,utente['contatto_nome'] + " " + utente['contatto_cognome'],acctype,pincode,int(round(date)))
+            adduser_mqtt(uid,utente['contatto_nome'] + " " + utente['contatto_cognome'],acctype,pincode,int(round(date)),syncpin)
+
     else:
         new_card_presented(uid,hostname)
 
@@ -254,6 +259,21 @@ def enabling_wifi( hostname: str):
                                 parse_mode=ParseMode.HTML,
                                 text=_text)
 
+def updt_start( hostname: str):
+    logging.info('Aggiornamento dispositivo ' + str(hostname) + ' avviato')
+    _text = f'Aggiornamento dispositivo {hostname} avviato'
+    dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
+                                parse_mode=ParseMode.HTML,
+                                text=_text)
+
+def updt_stop( hostname: str):
+    logging.info('L\'aggiornamento dispositivo ' + str(hostname) + ' è terminato!')
+    _text = f'L\'aggiornamento del dispositivo {hostname}  è terminato!'
+    dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
+                                parse_mode=ParseMode.HTML,
+                                text=_text)
+
+
 def login_attemp( data: str, hostname: str):
     logging.info('Il dispositivo ' + str(data) + ' ha tentato di connettersi al device ' + str(hostname))
     _text = f'Il dispositivo {data} ha tentato di connettersi al device {hostname}'
@@ -307,14 +327,26 @@ def opendoor_mqtt(query):
             text=f'@{query.from_user.username} ha aperto la porta INTERNA TOOLBOX da #remoto')
         return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
 
-def adduser_mqtt(uid: str, user: str, acctype: str, pincode: str, validuntil: str):
-    logging.info('Utente ' + str(uid) + ' con tessera valida trovato su Winddoc lo aggiungo alle porte'))
-    _payload = json.dumps({'cmd': 'adduser', 'doorip': DOOR1_IP, 'uid': str(uid), "user": str(user) , "acctype": str(acctype), "pincode": str(pincode), "validuntil": str(validuntil)})
-    _text = f'Utente {user} presente su WindDoc ma non  sulle porte, lo aggiungo'
-    dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
-                                parse_mode=ParseMode.HTML,
-                                text=_text)
-    return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
+def adduser_mqtt(uid: str, user: str, acctype: str, pincode: str, validuntil: str, syncpin: bool):
+    door_ip1 = True
+    door_ip2 = True
+    if door_ip1 == True:
+        _payload = json.dumps({'cmd': 'adduser', 'doorip': DOOR1_IP, 'uid': str(uid), "user": str(user) , "acctype": str(acctype), "pincode": str(pincode), "validuntil": str(validuntil)})
+        if syncpin is False:     
+            logging.info('Utente ' + str(uid) + ' con tessera valida trovato su Winddoc lo aggiungo alle porte')
+            _text = f'Utente {user} presente su WindDoc ma non  sulle porte, lo aggiungo'
+        else:
+            logging.info('Utente ' + str(uid) + 'ha imputato un pin errato, lo sincronizzo con WindDoc')
+            _text = f'Utente {user} ha imputato un pin errato, lo sincronizzo con WindDoc'
+        dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
+                                    parse_mode=ParseMode.HTML,
+                                    text=_text)
+        return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
+    
+    if door_ip2 == True:
+        logging.info('Utente ' + str(uid) + ' con tessera valida trovato su Winddoc lo aggiungo alle porte')
+        _payload = json.dumps({'cmd': 'adduser', 'doorip': DOOR2_IP, 'uid': str(uid), "user": str(user) , "acctype": str(acctype), "pincode": str(pincode), "validuntil": str(validuntil)})
+        return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
     
 
 def sync_bash():
@@ -350,8 +382,10 @@ def on_mqtt_message(client, userdata, message):
                 access_allowed(_json)
             elif _access == 'Disabled':
                 disabled_card_presented(_json.get('username'), _json.get('hostname'))
+            elif _access =='Wrong pin code':
+                WindDoc_search(_json.get('uid'), _json.get('hostname'),True) 
         elif _is_known == 'false':
-            WindDoc_search(_json.get('uid'), _json.get('hostname'))
+            WindDoc_search(_json.get('uid'), _json.get('hostname'),False)
     elif _type == 'INFO':
         logging.info(_i + 'INFO ' + _json.get('src'))
         if _src == 'websrv':
@@ -363,6 +397,11 @@ def on_mqtt_message(client, userdata, message):
         elif _src == 'wifi':
             if _desc == 'Enabling WiFi':
                 enabling_wifi(_json.get('hostname'))
+        elif _src == 'updt':
+            if _desc == 'Firmware update started':
+                updt_start(_json.get('hostname'))
+            elif _desc == 'Firmware update is finished':
+                updt_stop(_json.get('hostname'))
     elif _type == 'boot':
         boot_device(_json.get('hostname'))
     elif _type == 'WARN':

@@ -58,7 +58,7 @@ headers = CaseInsensitiveDict()
 headers["accept"] = "application/json"
 headers["Content-Type"] = "application/x-www-form-urlencoded"
 
-firstpage = {"method":"associazioni_soci_listaCercaSV","request":{"token_key":{"token":TOKEN, "token_app":TOKEN_APP},"query":"", "limit_to": 5000}}
+firstpage = {"method":"associazioni_soci_listaCercaSV","request":{"token_key":{"token":TOKEN, "token_app":TOKEN_APP},"query":"","pagina":"","limit_list":5000}}
 firstpage = http_build_query(firstpage, False, '[', ']')
 q_firstpage = urlencode(firstpage)
 

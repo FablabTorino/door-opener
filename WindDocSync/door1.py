@@ -10,6 +10,12 @@ import json
 ESPRFID_MQTT_TOPIC = os.getenv('ESPRFID_MQTT_TOPIC')
 if ESPRFID_MQTT_TOPIC is None:
     logging.error('ESPRFID_MQTT_TOPIC not set in .env')
+MQTT_BROKER_IP = os.getenv('MQTT_BROKER_IP')
+if MQTT_BROKER_IP is None:
+    logging.error('MQTT_BROKER_IP not set in .env')
+ESPRFID_IP = os.getenv('DOOR1_IP')
+if ESPRFID_IP is None:
+    logging.error('ESPRFID_IP not set in .env')
 
 # convert the full card uid to a shorter format
 # compatible with wiegand output of esp-rfid
@@ -43,7 +49,8 @@ def on_mqtt_message(client, userdata, message):
     return
 
   type = json_message.get('type')
-  if type == 'adduser' and len(users) > 0:
+  IP = json_message.get('ip')
+  if type == 'adduser' and IP == ESPRFID_IP and len(users) > 0:
     user = users.pop(0)
     mqtt_send_user(user)
 
@@ -81,8 +88,6 @@ def mqtt_add_users():
     # every second we check if we are done 
     time.sleep(1)
 
-MQTT_BROKER_IP = os.getenv('MQTT_BROKER_IP')
-ESPRFID_IP = os.getenv('DOOR1_IP')
 mqttClient = mqtt.Client('WindDocSync')
 
 try:
