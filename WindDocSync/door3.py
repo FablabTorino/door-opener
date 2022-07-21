@@ -13,9 +13,9 @@ if ESPRFID_MQTT_TOPIC is None:
 MQTT_BROKER_IP = os.getenv('MQTT_BROKER_IP')
 if MQTT_BROKER_IP is None:
     logging.error('MQTT_BROKER_IP not set in .env')
-ESPRFID_IP = os.getenv('DOOR2_IP')
+ESPRFID_IP = os.getenv('DOOR3_IP')
 if ESPRFID_IP is None:
-    logging.error('DOOR2_IP not set in .env')
+    logging.error('DOOR3_IP not set in .env')
 
 
 # convert the full card uid to a shorter format
@@ -33,7 +33,7 @@ def load_users():
   sync_json_path = join(dirname(__file__), 'sync.json')
   file = open(sync_json_path)
   users = json.load(file)
-#  os.remove(sync_json_path)
+  os.remove(sync_json_path)
   return users
 
 def mqtt_delete_users():

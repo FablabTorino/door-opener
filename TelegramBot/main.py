@@ -42,6 +42,9 @@ if DOOR1_IP is None:
 DOOR2_IP = os.getenv('DOOR2_IP')
 if DOOR2_IP is None:
     logging.error('DOOR2_IP not set in .env')
+DOOR3_IP = os.getenv('DOOR3_IP')
+if DOOR3_IP is None:
+    logging.error('DOOR3_IP not set in .env')
 TOKEN_TBOT = os.getenv('TOKEN_TBOT')
 if TOKEN_TBOT is None:
     logging.error('token not set in .env')
@@ -111,7 +114,7 @@ def WindDoc_search( uid: str, hostname: str, syncpin: bool):
     if not len(filterdata) == 0:
         newlist = json.dumps(eval(filterdata))
         utente = json.loads(newlist)
-        
+
         if utente['stato_socio'] == "3" or utente['deve_rinnovare'] == True :
             subs_not_renewed(utente['contatto_nome'] + " " + utente['contatto_cognome'], hostname)
         else:
@@ -121,13 +124,13 @@ def WindDoc_search( uid: str, hostname: str, syncpin: bool):
                 acctype = '99'
             else:
                 acctype = '1'
-            
+
             if re.match(r'[0-9]?([0-9])\1\1+', utente['campo6'], re.M) is not None:
                 pincode = 'xxxx'
-            
+
             if re.match(r'\d{4}', utente['campo6']) is None:
                 pincode = 'xxxx' 
-                
+
             date=datetime.datetime.strptime(str(utente['data_scadenza_rinnovo']),"%Y-%m-%d")
             date=date.timestamp()
             adduser_mqtt(uid,utente['contatto_nome'] + " " + utente['contatto_cognome'],acctype,pincode,int(round(date)),syncpin)
@@ -146,18 +149,23 @@ dispatcher = updater.dispatcher
 # Telegram Bot
 
 def help_command(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text('Usa /open per aprire la porta oppure usa /sync per sincronizzare manualmente con WindDoc')
+    update.message.reply_text('Comandi Disponobili: /open per aprire la porta oppure usa /sync per sincronizzare manualmente con WindDoc')
 
 
 def open_command(update: Update, context: CallbackContext) -> None:
     keyboard = [
         [
             InlineKeyboardButton('Annulla', callback_data='open_cancel'),
-            InlineKeyboardButton('Apri EGEO16', callback_data=f'open_confirm_{DOOR1_IP}'),
-            InlineKeyboardButton('Apri INTERNO TOOLBOX', callback_data=f'open_confirm_{DOOR2_IP}'),
+            InlineKeyboardButton('EGEO16', callback_data=f'open_confirm_{DOOR1_IP}'),
+            InlineKeyboardButton('EGEO18', callback_data=f'open_confirm_{DOOR2_IP}'),
+        ],
+        [    
+            InlineKeyboardButton('INT_EGEO18', callback_data=f'open_confirm_{DOOR3_IP}'),
+            InlineKeyboardButton('INT_TOOLBOX', callback_data=f'open_confirm_{DOOR2_IP}'),
+            
         ]
     ]
-    update.message.reply_text('Sicuro che devo aprire la porta?',
+    update.message.reply_text('Quale porta devo aprire?',
                               reply_markup=InlineKeyboardMarkup(keyboard))
 
 
@@ -209,6 +217,10 @@ def unknown_chat(update: Update, context: CallbackContext):
 
 def tbot_setup():
     """Telegram Bot setup"""
+    _text = f'Fablab Torino Door Bot Avviato'
+    dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
+                                parse_mode=ParseMode.HTML,
+                                text=_text)
     chat_filter = Filters.text & Filters.chat(CHAT_ID_TBOT)
     # /help
     dispatcher.add_handler(CommandHandler('help', help_command, chat_filter))
@@ -330,9 +342,10 @@ def opendoor_mqtt(query):
 def adduser_mqtt(uid: str, user: str, acctype: str, pincode: str, validuntil: str, syncpin: bool):
     door_ip1 = True
     door_ip2 = True
+    door_ip3 = True
     if door_ip1 == True:
         _payload = json.dumps({'cmd': 'adduser', 'doorip': DOOR1_IP, 'uid': str(uid), "user": str(user) , "acctype": str(acctype), "pincode": str(pincode), "validuntil": str(validuntil)})
-        if syncpin is False:     
+        if syncpin is False:
             logging.info('Utente ' + str(uid) + ' con tessera valida trovato su Winddoc lo aggiungo alle porte')
             _text = f'Utente {user} presente su WindDoc ma non  sulle porte, lo aggiungo'
         else:
@@ -341,13 +354,15 @@ def adduser_mqtt(uid: str, user: str, acctype: str, pincode: str, validuntil: st
         dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
                                     parse_mode=ParseMode.HTML,
                                     text=_text)
-        return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
-    
+        mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
+
     if door_ip2 == True:
-        logging.info('Utente ' + str(uid) + ' con tessera valida trovato su Winddoc lo aggiungo alle porte')
-        _payload = json.dumps({'cmd': 'adduser', 'doorip': DOOR2_IP, 'uid': str(uid), "user": str(user) , "acctype": str(acctype), "pincode": str(pincode), "validuntil": str(validuntil)})
-        return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
-    
+        _payload2 = json.dumps({'cmd': 'adduser', 'doorip': DOOR2_IP, 'uid': str(uid), "user": str(user) , "acctype": str(acctype), "pincode": str(pincode), "validuntil": str(validuntil)})
+        mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload2)
+
+    if door_ip3 == True:
+        _payload3 = json.dumps({'cmd': 'adduser', 'doorip': DOOR3_IP, 'uid': str(uid), "user": str(user) , "acctype": str(acctype), "pincode": str(pincode), "validuntil": str(validuntil)})
+        mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload3)
 
 def sync_bash():
     logging.info('sync_bash')
@@ -383,7 +398,7 @@ def on_mqtt_message(client, userdata, message):
             elif _access == 'Disabled':
                 disabled_card_presented(_json.get('username'), _json.get('hostname'))
             elif _access =='Wrong pin code':
-                WindDoc_search(_json.get('uid'), _json.get('hostname'),True) 
+                WindDoc_search(_json.get('uid'), _json.get('hostname'),True)
         elif _is_known == 'false':
             WindDoc_search(_json.get('uid'), _json.get('hostname'),False)
     elif _type == 'INFO':
@@ -411,7 +426,6 @@ def on_mqtt_message(client, userdata, message):
         elif _src == 'sys':
             if _desc == 'Config stored in the SPIFFS':
                 config_change (_json.get('hostname'))
-    
 
 def mqtt_setup():
     """ MQTT setup """
@@ -435,10 +449,11 @@ def mqtt_setup():
 def main() -> None:
     mqtt_setup()
     tbot_setup()
+
     while True:
         try:
             if time.time() - last_mqtt_message > 130:
-                attempts = 5
+                attempts = 15
                 while attempts:
                     try:
                         mqttClient.connect(MQTT_BROKER_IP)
