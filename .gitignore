@@ -6,3 +6,5 @@ WindDocSync/.envsync
 WindDocSync/pysync.log
 WindDocSync/pysync.json
 TelegramBot/doorbot.log
+TelegramBot/mosquitto_esp-rfid_cmd_sub
+TelegramBot/mosquitto_esp-rfid_send_sub
