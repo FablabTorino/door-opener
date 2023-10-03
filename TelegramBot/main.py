@@ -277,7 +277,7 @@ def updt_start( hostname: str):
 
 def updt_stop( hostname: str):
     logging.info('L\'aggiornamento dispositivo ' + str(hostname) + ' è terminato!')
-    _text = f'L\'aggiornamento del dispositivo {hostname}  è terminato!'
+    _text = f'L\'aggiornamento del dispositivo {hostname} è terminato!'
     dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
                                 parse_mode=ParseMode.HTML,
                                 text=_text)
@@ -339,7 +339,7 @@ def opendoor_mqtt(query):
 def adduser_mqtt(uid: str, user: str, acctype: str, pincode: str, validuntil: str, syncpin: bool):
     if syncpin is False:
         logging.info('Utente ' + str(uid) + ' con tessera valida trovato su Winddoc lo aggiungo alle porte')
-        _text = f'Utente {user} presente su WindDoc ma non  sulle porte, lo aggiungo'
+        _text = f'Utente {user} presente su WindDoc ma non sulle porte, lo aggiungo'
     else:
         logging.info('Utente ' + str(uid) + 'ha imputato un pin errato, lo sincronizzo con WindDoc')
         _text = f'Utente {user} ha imputato un pin errato, lo sincronizzo con WindDoc'
@@ -360,6 +360,7 @@ def sync_bash():
 
 def on_mqtt_message(client, userdata, message):
     global last_mqtt_message
+    same_timestamp_as_previous_message = False
     _i = '[MQTT] '
 
     try:
@@ -373,7 +374,7 @@ def on_mqtt_message(client, userdata, message):
 
     # we skip multiple messages with the same timestamp
     if message_time == last_mqtt_message:
-        return
+        same_timestamp_as_previous_message = True
 
     last_mqtt_message = message_time
 
@@ -385,7 +386,7 @@ def on_mqtt_message(client, userdata, message):
 
     if _type == 'access':
         if _is_known == 'true':
-            if _access in ['Admin', 'Always']:
+            if _access in ['Admin', 'Always'] and not same_timestamp_as_previous_message:
                 access_allowed(_json)
             elif _access == 'Disabled':
                 disabled_card_presented(_json.get('username'), _json.get('hostname'))
