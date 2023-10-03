@@ -157,12 +157,7 @@ def open_command(update: Update, context: CallbackContext) -> None:
         [
             InlineKeyboardButton('Annulla', callback_data='open_cancel'),
             InlineKeyboardButton('EGEO16', callback_data=f'open_confirm_{DOOR1_IP}'),
-            InlineKeyboardButton('EGEO18', callback_data=f'open_confirm_{DOOR2_IP}'),
-        ],
-        [    
-            InlineKeyboardButton('INT_EGEO18', callback_data=f'open_confirm_{DOOR3_IP}'),
-            InlineKeyboardButton('INT_TOOLBOX', callback_data=f'open_confirm_{DOOR2_IP}'),
-            
+            InlineKeyboardButton('EGEO18', callback_data=f'open_confirm_{DOOR3_IP}'),
         ]
     ]
     update.message.reply_text('Quale porta devo aprire?',
@@ -337,6 +332,12 @@ def opendoor_mqtt(query):
         _payload = json.dumps({'cmd': 'opendoor', 'doorip': DOOR2_IP})
         query.edit_message_text(
             text=f'@{query.from_user.username} ha aperto la porta INTERNA TOOLBOX da #remoto')
+        return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
+    elif door_ip == DOOR3_IP:
+        logging.info('opendoor_mqtt')
+        _payload = json.dumps({'cmd': 'opendoor', 'doorip': DOOR3_IP})
+        query.edit_message_text(
+            text=f'@{query.from_user.username} ha aperto la porta EGEO18 da #remoto')
         return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
 
 def adduser_mqtt(uid: str, user: str, acctype: str, pincode: str, validuntil: str, syncpin: bool):
