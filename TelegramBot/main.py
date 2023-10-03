@@ -327,12 +327,6 @@ def opendoor_mqtt(query):
         query.edit_message_text(
             text=f'@{query.from_user.username} ha aperto la porta EGEO16 da #remoto')
         return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
-    elif door_ip == DOOR2_IP:
-        logging.info('opendoor_mqtt')
-        _payload = json.dumps({'cmd': 'opendoor', 'doorip': DOOR2_IP})
-        query.edit_message_text(
-            text=f'@{query.from_user.username} ha aperto la porta INTERNA TOOLBOX da #remoto')
-        return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
     elif door_ip == DOOR3_IP:
         logging.info('opendoor_mqtt')
         _payload = json.dumps({'cmd': 'opendoor', 'doorip': DOOR3_IP})
@@ -341,29 +335,21 @@ def opendoor_mqtt(query):
         return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
 
 def adduser_mqtt(uid: str, user: str, acctype: str, pincode: str, validuntil: str, syncpin: bool):
-    door_ip1 = True
-    door_ip2 = True
-    door_ip3 = True
-    if door_ip1 == True:
-        _payload = json.dumps({'cmd': 'adduser', 'doorip': DOOR1_IP, 'uid': str(uid), "user": str(user) , "acctype": str(acctype), "pincode": str(pincode), "validuntil": str(validuntil)})
-        if syncpin is False:
-            logging.info('Utente ' + str(uid) + ' con tessera valida trovato su Winddoc lo aggiungo alle porte')
-            _text = f'Utente {user} presente su WindDoc ma non  sulle porte, lo aggiungo'
-        else:
-            logging.info('Utente ' + str(uid) + 'ha imputato un pin errato, lo sincronizzo con WindDoc')
-            _text = f'Utente {user} ha imputato un pin errato, lo sincronizzo con WindDoc'
-        dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
-                                    parse_mode=ParseMode.HTML,
-                                    text=_text)
-        mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
+    if syncpin is False:
+        logging.info('Utente ' + str(uid) + ' con tessera valida trovato su Winddoc lo aggiungo alle porte')
+        _text = f'Utente {user} presente su WindDoc ma non  sulle porte, lo aggiungo'
+    else:
+        logging.info('Utente ' + str(uid) + 'ha imputato un pin errato, lo sincronizzo con WindDoc')
+        _text = f'Utente {user} ha imputato un pin errato, lo sincronizzo con WindDoc'
+    dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
+                                parse_mode=ParseMode.HTML,
+                                text=_text)
 
-    if door_ip2 == True:
-        _payload2 = json.dumps({'cmd': 'adduser', 'doorip': DOOR2_IP, 'uid': str(uid), "user": str(user) , "acctype": str(acctype), "pincode": str(pincode), "validuntil": str(validuntil)})
-        mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload2)
+    _payload = json.dumps({'cmd': 'adduser', 'doorip': DOOR1_IP, 'uid': str(uid), "user": str(user) , "acctype": str(acctype), "pincode": str(pincode), "validuntil": str(validuntil)})
+    mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
 
-    if door_ip3 == True:
-        _payload3 = json.dumps({'cmd': 'adduser', 'doorip': DOOR3_IP, 'uid': str(uid), "user": str(user) , "acctype": str(acctype), "pincode": str(pincode), "validuntil": str(validuntil)})
-        mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload3)
+    _payload3 = json.dumps({'cmd': 'adduser', 'doorip': DOOR3_IP, 'uid': str(uid), "user": str(user) , "acctype": str(acctype), "pincode": str(pincode), "validuntil": str(validuntil)})
+    mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload3)
 
 def sync_bash():
     logging.info('sync_bash')
@@ -371,6 +357,7 @@ def sync_bash():
 
 
 def on_mqtt_message(client, userdata, message):
+    global last_mqtt_message
     _i = '[MQTT] '
     message_time = time.time()
 
