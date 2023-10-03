@@ -6,6 +6,7 @@ verify_ssl = true
 [dev-packages]
 
 [packages]
-python-telegram-bot = "*"
-python-dotenv = "*"
-paho-mqtt = "*"
+paho-mqtt = "1.6.1"
+python-dotenv = "0.19.2"
+python-telegram-bot = "13.10"
+requests = "2.31.0"

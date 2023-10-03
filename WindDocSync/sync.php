@@ -160,7 +160,7 @@ function main() {
 
   $WindDocTalker = new WindDocTalker($_ENV['WINDDOC_TOKEN'], $_ENV['WINDDOC_TOKEN_APP']);
   
-  $usersArr = $WindDocTalker->listaSoci(1, '', 1500);
+  $usersArr = $WindDocTalker->listaSoci(1, '', 2000);
   $users = array_map('arrayUserToObject', $usersArr->lista);
   $extractedInfo = array_map('extractInfo', $users);
   $usersToSync = array_values(array_filter($extractedInfo, 'isToSync'));
