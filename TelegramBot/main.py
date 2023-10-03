@@ -239,11 +239,13 @@ def tbot_setup():
 def access_allowed(command):
     if command["username"] == 'MQTT':
         logging.info('[MQTT] opendoor')
+        dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
+                                    text=f'Porta {command["hostname"]} aperta via MQTT')
+
     else:
         logging.info('open to : ' + str(command))
-    dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
-                                text=f'{command["username"]} ha aperto la porta {command["hostname"]} con la #tessera')
-
+        dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
+                                    text=f'{command["username"]} ha aperto la porta {command["hostname"]} con la #tessera')
 
 def new_card_presented(uid: str, hostname: str):
     logging.info('new_card_presented : ' + str(uid))
@@ -359,19 +361,21 @@ def sync_bash():
 def on_mqtt_message(client, userdata, message):
     global last_mqtt_message
     _i = '[MQTT] '
-    message_time = time.time()
 
-    # we skip multiple messages with the same timestamp
-    if message_time == last_mqtt_message:
-        return
-
-    last_mqtt_message = message_time
     try:
         _json = json.loads(message.payload)
     except BaseException as e:
         logging.error('JSON parsing error')
         logging.error(e)
         return
+
+    message_time = int(_json.get('time'))
+
+    # we skip multiple messages with the same timestamp
+    if message_time == last_mqtt_message:
+        return
+
+    last_mqtt_message = message_time
 
     _type = _json.get('type')
     _access = _json.get('access')
