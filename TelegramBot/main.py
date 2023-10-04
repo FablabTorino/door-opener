@@ -323,14 +323,13 @@ def subs_not_renewed(uid: str, hostname: str):
 
 def opendoor_mqtt(query):
     door_ip = query.data[len('open_confirm_'):]
+    logging.info('opendoor_mqtt ' + door_ip)
     if door_ip == DOOR1_IP:
-        logging.info('opendoor_mqtt')
         _payload = json.dumps({'cmd': 'opendoor', 'doorip': DOOR1_IP})
         query.edit_message_text(
             text=f'@{query.from_user.username} ha aperto la porta EGEO16 da #remoto')
         return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
     elif door_ip == DOOR3_IP:
-        logging.info('opendoor_mqtt')
         _payload = json.dumps({'cmd': 'opendoor', 'doorip': DOOR3_IP})
         query.edit_message_text(
             text=f'@{query.from_user.username} ha aperto la porta EGEO18 da #remoto')
