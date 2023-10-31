@@ -156,9 +156,11 @@ def open_command(update: Update, context: CallbackContext) -> None:
     keyboard = [
         [
             InlineKeyboardButton('Annulla', callback_data='open_cancel'),
-            InlineKeyboardButton('EGEO18-INT', callback_data=f'open_confirm_{DOOR1_IP}'),
+            InlineKeyboardButton('EGEO18-INT', callback_data=f'open_confirm_{DOOR1_IP}')
+        ],
+        [
             InlineKeyboardButton('EGEO18-EXT', callback_data=f'open_confirm_{DOOR2_IP}'),
-            InlineKeyboardButton('EGEO18-FABLAB', callback_data=f'open_confirm_{DOOR3_IP}'),
+            InlineKeyboardButton('EGEO18-FABLAB', callback_data=f'open_confirm_{DOOR3_IP}')
         ]
     ]
     update.message.reply_text('Quale porta devo aprire?',
