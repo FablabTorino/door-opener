@@ -378,13 +378,14 @@ def on_mqtt_message(client, userdata, message):
         logging.error(e)
         return
 
-    message_time = int(_json.get('time'))
+    if _json.get('time'):
+        message_time = int(_json.get('time'))
 
-    # we skip multiple messages with the same timestamp
-    if message_time == last_mqtt_message:
-        same_timestamp_as_previous_message = True
+        # we skip multiple messages with the same timestamp
+        if message_time == last_mqtt_message:
+            same_timestamp_as_previous_message = True
 
-    last_mqtt_message = message_time
+        last_mqtt_message = message_time
 
     _type = _json.get('type')
     _access = _json.get('access')
