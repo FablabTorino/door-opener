@@ -156,8 +156,9 @@ def open_command(update: Update, context: CallbackContext) -> None:
     keyboard = [
         [
             InlineKeyboardButton('Annulla', callback_data='open_cancel'),
-            InlineKeyboardButton('EGEO16', callback_data=f'open_confirm_{DOOR1_IP}'),
-            InlineKeyboardButton('EGEO18', callback_data=f'open_confirm_{DOOR3_IP}'),
+            InlineKeyboardButton('EGEO18-INT', callback_data=f'open_confirm_{DOOR1_IP}'),
+            InlineKeyboardButton('EGEO18-EXT', callback_data=f'open_confirm_{DOOR2_IP}'),
+            InlineKeyboardButton('EGEO18-FABLAB', callback_data=f'open_confirm_{DOOR3_IP}'),
         ]
     ]
     update.message.reply_text('Quale porta devo aprire?',
@@ -327,12 +328,17 @@ def opendoor_mqtt(query):
     if door_ip == DOOR1_IP:
         _payload = json.dumps({'cmd': 'opendoor', 'doorip': DOOR1_IP})
         query.edit_message_text(
-            text=f'@{query.from_user.username} ha aperto la porta EGEO16 da #remoto')
+            text=f'@{query.from_user.username} ha aperto la porta EGEO18-INT da #remoto')
+        return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
+    elif door_ip == DOOR2_IP:
+        _payload = json.dumps({'cmd': 'opendoor', 'doorip': DOOR2_IP})
+        query.edit_message_text(
+            text=f'@{query.from_user.username} ha aperto la porta EGEO18-EXT da #remoto')
         return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
     elif door_ip == DOOR3_IP:
         _payload = json.dumps({'cmd': 'opendoor', 'doorip': DOOR3_IP})
         query.edit_message_text(
-            text=f'@{query.from_user.username} ha aperto la porta EGEO18 da #remoto')
+            text=f'@{query.from_user.username} ha aperto la porta EGEO18-FABLAB da #remoto')
         return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
 
 def adduser_mqtt(uid: str, user: str, acctype: str, pincode: str, validuntil: str, syncpin: bool):
@@ -348,6 +354,9 @@ def adduser_mqtt(uid: str, user: str, acctype: str, pincode: str, validuntil: st
 
     _payload = json.dumps({'cmd': 'adduser', 'doorip': DOOR1_IP, 'uid': str(uid), "user": str(user) , "acctype": str(acctype), "pincode": str(pincode), "validuntil": str(validuntil)})
     mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
+
+    _payload2 = json.dumps({'cmd': 'adduser', 'doorip': DOOR2_IP, 'uid': str(uid), "user": str(user) , "acctype": str(acctype), "pincode": str(pincode), "validuntil": str(validuntil)})
+    mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload2)
 
     _payload3 = json.dumps({'cmd': 'adduser', 'doorip': DOOR3_IP, 'uid': str(uid), "user": str(user) , "acctype": str(acctype), "pincode": str(pincode), "validuntil": str(validuntil)})
     mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload3)
