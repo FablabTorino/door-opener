@@ -86,6 +86,8 @@ def mqtt_add_users():
   while len(users) > 0:
     # every second we check if we are done 
     time.sleep(1)
+    user = users.pop(0)
+    mqtt_send_user(user)
 
 mqttClient = mqtt.Client('WindDocSync')
 
