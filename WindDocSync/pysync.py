@@ -11,6 +11,7 @@ import logging
 from requests.structures import CaseInsensitiveDict
 from collections.abc import MutableMapping
 from urllib.parse import urlencode, unquote
+from datetime import datetime
 
 logging_path = join(os.getcwd(), dirname(__file__), 'pysync.log')
 logging.basicConfig(
@@ -64,14 +65,37 @@ q_firstpage = urlencode(firstpage)
 
 r = requests.post(URL, headers=headers, data=q_firstpage)
 
-f_json = open("./WindDocSync/pysync.json", "w")
 jsonData = json.loads(r.content)
-paginautenti = jsonData['lista']
-c_json = str(paginautenti).strip('[]').strip('[]').strip('"')
-utenti = json.dumps(eval(c_json))
-f_json.write(utenti) 
 
-    
+paginautenti = jsonData['lista']
+
+usersJson = []
+
+for utente in paginautenti:
+    userJson = {}
+    userJson['cardNumber'] = utente['campo1']
+    userJson['fullName'] = utente['contatto_nome'] + ' ' + utente['contatto_cognome']
+    format_date = datetime.strptime(utente['data_scadenza_rinnovo'], '%Y-%m-%d')
+    userJson['validUntil'] = int(format_date.timestamp())
+    pinCode = utente['campo6']
+    if pinCode == '1234':
+        pinCode = 'xxxx'
+    userJson['Pin'] = pinCode
+    accessLevel = 1
+    if utente['campo2'] == '1':
+        accessLevel = '99'
+    userJson['accessLevel'] = accessLevel
+
+    if userJson['cardNumber'] == None:
+        continue
+    if userJson['validUntil'] < int(time.time()):
+        continue
+    usersJson.append(userJson)
+
+json_path = join(os.getcwd(), dirname(__file__), 'sync.json')
+f_json = open(json_path, "w")
+json.dump(usersJson, f_json)
 f_json.close()
+
 logging.info("END SYNC")
 
