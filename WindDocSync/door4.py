@@ -33,7 +33,7 @@ def load_users():
   sync_json_path = join(dirname(__file__), 'sync.json')
   file = open(sync_json_path)
   users = json.load(file)
-  os.remove(sync_json_path)
+  # os.remove(sync_json_path)
   return users
 
 def mqtt_delete_users():
