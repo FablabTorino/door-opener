@@ -122,9 +122,13 @@ def WindDoc_search( uid: str, hostname: str, syncpin: bool):
             subs_not_renewed(utente['contatto_nome'] + " " + utente['contatto_cognome'], hostname)
         else:
             pincode = utente['campo6']
+            accesso_h24 = utente['campo2']== '1'
+            tirocinante = utente['campo9'] == '1'
 
-            if utente['campo2']== '1':
+            if accesso_h24:
                 acctype = '99'
+            elif tirocinante:
+                acctype = '2'
             else:
                 acctype = '1'
 

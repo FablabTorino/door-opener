@@ -77,13 +77,24 @@ for utente in paginautenti:
     userJson['fullName'] = utente['contatto_nome'] + ' ' + utente['contatto_cognome']
     format_date = datetime.strptime(utente['data_scadenza_rinnovo'], '%Y-%m-%d')
     userJson['validUntil'] = int(format_date.timestamp())
+
+    # TODO: check also if campo8 is bigger than validuntil
     pinCode = utente['campo6']
     if pinCode == '1234':
         pinCode = 'xxxx'
+
     userJson['Pin'] = pinCode
-    accessLevel = 1
-    if utente['campo2'] == '1':
+
+    accesso_h24 = utente['campo2']== '1'
+    tirocinante = utente['campo9'] == '1'
+
+    if accesso_h24:
         accessLevel = '99'
+    elif tirocinante:
+        accessLevel = '2'
+    else:
+        accessLevel = '1'
+
     userJson['accessLevel'] = accessLevel
 
     if userJson['cardNumber'] == None:

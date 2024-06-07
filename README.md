@@ -50,3 +50,6 @@ Warning:
 - Somebody pass the card on RFID reader
   - option 1: It's in the database -> Open door and send log message
   - option 2: It isn't in the database -> Ask what to do 
+
+## WindDocSync
+
