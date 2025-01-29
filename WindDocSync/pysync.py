@@ -85,7 +85,7 @@ for utente in paginautenti:
 
     userJson['Pin'] = pinCode
 
-    accesso_h24 = utente['campo2']== '1'
+    accesso_h24 = utente['campo2'] == '1' or utente['carica_socio_nome'] == 'Tessera Maker'
     tirocinante = utente['campo9'] == '1'
 
     if accesso_h24:
