@@ -42,9 +42,9 @@ if DOOR1_IP is None:
 DOOR2_IP = os.getenv('DOOR2_IP')
 if DOOR2_IP is None:
     logging.error('DOOR2_IP not set in .env')
-DOOR3_IP = os.getenv('DOOR3_IP')
-if DOOR3_IP is None:
-    logging.error('DOOR3_IP not set in .env')
+# DOOR3_IP = os.getenv('DOOR3_IP')
+# if DOOR3_IP is None:
+#     logging.error('DOOR3_IP not set in .env')
 DOOR4_IP = os.getenv('DOOR4_IP')
 if DOOR4_IP is None:
     logging.error('DOOR4_IP not set in .env')
@@ -167,11 +167,11 @@ def open_command(update: Update, context: CallbackContext) -> None:
         ],
         [
             InlineKeyboardButton('EGEO18-EXT', callback_data=f'open_confirm_{DOOR2_IP}'),
-            InlineKeyboardButton('EGEO18-FABLAB', callback_data=f'open_confirm_{DOOR3_IP}')
-        ],
-        [
             InlineKeyboardButton('FABLAB-MAKEIT', callback_data=f'open_confirm_{DOOR4_IP}')
         ]
+        # [
+        #     InlineKeyboardButton('EGEO18-FABLAB', callback_data=f'open_confirm_{DOOR3_IP}')
+        # ]
     ]
     update.message.reply_text('Quale porta devo aprire?',
                               reply_markup=InlineKeyboardMarkup(keyboard))
@@ -347,11 +347,11 @@ def opendoor_mqtt(query):
         query.edit_message_text(
             text=f'@{query.from_user.username} ha aperto la porta EGEO18-EXT da #remoto')
         return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
-    elif door_ip == DOOR3_IP:
-        _payload = json.dumps({'cmd': 'opendoor', 'doorip': DOOR3_IP})
-        query.edit_message_text(
-            text=f'@{query.from_user.username} ha aperto la porta EGEO18-FABLAB da #remoto')
-        return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
+    # elif door_ip == DOOR3_IP:
+    #     _payload = json.dumps({'cmd': 'opendoor', 'doorip': DOOR3_IP})
+    #     query.edit_message_text(
+    #         text=f'@{query.from_user.username} ha aperto la porta EGEO18-FABLAB da #remoto')
+    #     return mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload)
     elif door_ip == DOOR4_IP:
         _payload = json.dumps({'cmd': 'opendoor', 'doorip': DOOR4_IP})
         query.edit_message_text(
@@ -375,8 +375,8 @@ def adduser_mqtt(uid: str, user: str, acctype: str, pincode: str, validuntil: st
     _payload2 = json.dumps({'cmd': 'adduser', 'doorip': DOOR2_IP, 'uid': str(uid), "user": str(user) , "acctype": str(acctype), "pincode": str(pincode), "validuntil": str(validuntil)})
     mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload2)
 
-    _payload3 = json.dumps({'cmd': 'adduser', 'doorip': DOOR3_IP, 'uid': str(uid), "user": str(user) , "acctype": str(acctype), "pincode": str(pincode), "validuntil": str(validuntil)})
-    mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload3)
+    # _payload3 = json.dumps({'cmd': 'adduser', 'doorip': DOOR3_IP, 'uid': str(uid), "user": str(user) , "acctype": str(acctype), "pincode": str(pincode), "validuntil": str(validuntil)})
+    # mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload3)
 
     _payload4 = json.dumps({'cmd': 'adduser', 'doorip': DOOR4_IP, 'uid': str(uid), "user": str(user) , "acctype": str(acctype), "pincode": str(pincode), "validuntil": str(validuntil)})
     mqttClient.publish(ESPRFID_MQTT_TOPIC + '/cmd', _payload4)
