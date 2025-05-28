@@ -48,7 +48,7 @@ if ESPRFID_MQTT_TOPIC is None:
 
 logging.info(MQTT_BROKER_IP)
 
-mqttClient = mqtt.Client('TelegramBot')
+mqttClient = mqtt.Client('TelegramBellBot')
 last_mqtt_message = time.time()
 
 # Telegram Bot setup
@@ -115,9 +115,12 @@ def on_mqtt_message(client, userdata, message):
     _type = _json.get('type')
     _src = _json.get('src')
 
-    if _type == 'INFO' and _src == 'doorbell':
-        logging.info(_i + 'INFO ' + _json.get('type'))
-        doorbell_rang(_json.get('hostname'))
+    try:
+        if _type == 'INFO' and _src == 'doorbell':
+            logging.info(_i + 'INFO ' + _json.get('type'))
+            doorbell_rang(_json.get('hostname'))
+    except:
+        logging.error(e)
 
 def mqtt_setup():
     """ MQTT setup """
