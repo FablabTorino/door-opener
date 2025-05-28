@@ -1,0 +1,42 @@
+2025-05-28 17:35:27,367 - root - INFO - 127.0.0.1
+2025-05-28 17:35:27,367 - root - INFO - start MQTT setup
+2025-05-28 17:35:27,368 - root - INFO - end MQTT setup
+2025-05-28 17:35:27,625 - apscheduler.scheduler - INFO - Scheduler started
+2025-05-28 17:36:35,903 - telegram.ext.updater - INFO - Received signal 2 (SIGINT), stopping...
+2025-05-28 17:36:35,903 - apscheduler.scheduler - INFO - Scheduler has been shut down
+2025-05-28 17:36:36,055 - telegram.ext.updater - WARNING - Exiting immediately!
+2025-05-28 17:36:37,459 - root - INFO - 127.0.0.1
+2025-05-28 17:36:37,459 - root - INFO - start MQTT setup
+2025-05-28 17:36:37,460 - root - INFO - end MQTT setup
+2025-05-28 17:36:37,805 - apscheduler.scheduler - INFO - Scheduler started
+2025-05-28 17:36:40,009 - root - ERROR - JSON parsing error
+2025-05-28 17:36:40,009 - root - ERROR - Expecting value: line 1 column 1 (char 0)
+2025-05-28 17:37:13,195 - telegram.ext.updater - INFO - Received signal 2 (SIGINT), stopping...
+2025-05-28 17:37:13,195 - apscheduler.scheduler - INFO - Scheduler has been shut down
+2025-05-28 17:37:13,919 - telegram.ext.updater - WARNING - Exiting immediately!
+2025-05-28 17:37:15,421 - root - INFO - 127.0.0.1
+2025-05-28 17:37:15,421 - root - INFO - start MQTT setup
+2025-05-28 17:37:15,422 - root - INFO - end MQTT setup
+2025-05-28 17:37:15,687 - apscheduler.scheduler - INFO - Scheduler started
+2025-05-28 17:38:44,794 - telegram.ext.updater - INFO - Received signal 2 (SIGINT), stopping...
+2025-05-28 17:38:44,795 - apscheduler.scheduler - INFO - Scheduler has been shut down
+2025-05-28 17:38:44,963 - telegram.ext.updater - WARNING - Exiting immediately!
+2025-05-28 17:38:46,442 - root - INFO - 127.0.0.1
+2025-05-28 17:38:46,442 - root - INFO - start MQTT setup
+2025-05-28 17:38:46,443 - root - INFO - end MQTT setup
+2025-05-28 17:38:46,732 - apscheduler.scheduler - INFO - Scheduler started
+2025-05-28 17:38:48,873 - root - INFO - message
+2025-05-28 17:38:48,873 - root - INFO - [MQTT] INFO INFO
+2025-05-28 17:38:48,873 - root - INFO - Campanello FABLAB-MAKEIT suonato
+2025-05-28 17:39:23,306 - telegram.ext.updater - INFO - Received signal 2 (SIGINT), stopping...
+2025-05-28 17:39:23,306 - apscheduler.scheduler - INFO - Scheduler has been shut down
+2025-05-28 17:39:23,965 - telegram.ext.updater - WARNING - Exiting immediately!
+2025-05-28 17:39:25,458 - root - INFO - 127.0.0.1
+2025-05-28 17:39:25,458 - root - INFO - start MQTT setup
+2025-05-28 17:39:25,459 - root - INFO - end MQTT setup
+2025-05-28 17:39:25,681 - apscheduler.scheduler - INFO - Scheduler started
+2025-05-28 17:39:28,786 - root - INFO - [MQTT] INFO INFO
+2025-05-28 17:39:28,786 - root - INFO - Campanello FABLAB-MAKEIT suonato
+2025-05-28 17:39:34,462 - telegram.ext.updater - INFO - Received signal 2 (SIGINT), stopping...
+2025-05-28 17:39:34,462 - apscheduler.scheduler - INFO - Scheduler has been shut down
+2025-05-28 17:39:34,706 - telegram.ext.updater - WARNING - Exiting immediately!
