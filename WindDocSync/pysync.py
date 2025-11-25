@@ -72,6 +72,10 @@ paginautenti = jsonData['lista']
 usersJson = []
 
 for utente in paginautenti:
+    # Escludi gli utenti con carica_socio_nome "Tessera Light" (uso lo stesso stile delle altre chiamate all'attributo)
+    if utente['carica_socio_nome'] == 'Tessera Light':
+        continue
+
     userJson = {}
     userJson['cardNumber'] = utente['campo1']
     userJson['fullName'] = utente['contatto_nome'] + ' ' + utente['contatto_cognome']
@@ -109,4 +113,3 @@ json.dump(usersJson, f_json)
 f_json.close()
 
 logging.info("END SYNC")
-
