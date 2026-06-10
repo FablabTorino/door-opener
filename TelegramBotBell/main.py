@@ -138,9 +138,21 @@ def _process_mqtt_message(message):
     except:
         logging.error(e)
 
+def on_mqtt_connect(client, userdata, flags, rc):
+    if rc == 0:
+        logging.info('[MQTT] connected, (re)subscribing to topics')
+        client.subscribe(ESPRFID_MQTT_TOPIC + '/send')
+    else:
+        logging.error('[MQTT] connection failed with code %s', rc)
+
+
 def mqtt_setup():
     """ MQTT setup """
     logging.info('start MQTT setup')
+
+    mqttClient.on_connect = on_mqtt_connect
+    mqttClient.on_message = on_mqtt_message
+    mqttClient.reconnect_delay_set(min_delay=1, max_delay=120)
 
     attempts = 5
     while attempts:
@@ -152,31 +164,11 @@ def mqtt_setup():
         attempts -= 1
         time.sleep(0.1)
     mqttClient.loop_start()
-    mqttClient.subscribe(ESPRFID_MQTT_TOPIC + '/send')
-    mqttClient.on_message = on_mqtt_message
     logging.info('end MQTT setup')
 
 def main() -> None:
     mqtt_setup()
     tbot_setup()
-
-    while True:
-        try:
-            if time.time() - last_mqtt_message > 130:
-                attempts = 15
-                while attempts:
-                    try:
-                        mqttClient.connect(MQTT_BROKER_IP)
-                        break
-                    except BaseException as e:
-                        logging.error(e)
-                    attempts -= 1
-                    time.sleep(0.1)
-
-                mqttClient.subscribe(ESPRFID_MQTT_TOPIC + '/send')
-            time.sleep(1)
-        except KeyboardInterrupt as e:
-            exit(2)
 
 
 if __name__ == '__main__':
