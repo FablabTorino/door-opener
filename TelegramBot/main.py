@@ -223,12 +223,19 @@ def unknown_chat(update: Update, context: CallbackContext):
                                text="Sorry, this bot isn't for you.")
 
 
+def error_handler(update: object, context: CallbackContext) -> None:
+    logging.error('Exception while handling an update', exc_info=context.error)
+
+
 def tbot_setup():
     """Telegram Bot setup"""
     _text = f'Fablab Torino Door Bot Avviato'
-    dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
-                                parse_mode=ParseMode.HTML,
-                                text=_text)
+    try:
+        dispatcher.bot.send_message(chat_id=CHAT_ID_TBOT,
+                                    parse_mode=ParseMode.HTML,
+                                    text=_text)
+    except telegram.error.TelegramError as e:
+        logging.error('Could not send startup message: %s', e)
     chat_filter = Filters.text & Filters.chat(CHAT_ID_TBOT)
     # /help
     dispatcher.add_handler(CommandHandler('help', help_command, chat_filter))
@@ -244,6 +251,7 @@ def tbot_setup():
     # Other chat
     dispatcher.add_handler(MessageHandler(
         ~Filters.chat(CHAT_ID_TBOT), unknown_chat))
+    dispatcher.add_error_handler(error_handler)
 
     updater.start_polling()
     updater.idle()
@@ -387,6 +395,14 @@ def sync_bash():
 
 
 def on_mqtt_message(client, userdata, message):
+    # catch everything so a network error doesn't kill the MQTT loop thread
+    try:
+        _process_mqtt_message(message)
+    except Exception as e:
+        logging.error('Error while processing MQTT message', exc_info=e)
+
+
+def _process_mqtt_message(message):
     global last_mqtt_message
     same_timestamp_as_previous_message = False
     _i = '[MQTT] '
