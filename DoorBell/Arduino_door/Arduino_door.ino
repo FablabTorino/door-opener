@@ -1,10 +1,11 @@
 #include <WiFiNINA.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
+#include "arduino_secrets.h"
 
-// WIFI config
-const char* ssid = "Fablab_TorinoSTAFF";
-const char* password = "Fablab.TorinoSTAFF!";
+// WIFI config (credentials in arduino_secrets.h, see arduino_secrets.h.example)
+const char* ssid = SECRET_SSID;
+const char* password = SECRET_PASS;
 
 // MQTT config
 const char* mqtt_server = "192.168.0.1";
@@ -19,14 +20,21 @@ PubSubClient client(espClient);
 const int relayPin = 4;
 unsigned long relayOnTime = 0;
 
+// Daily reboot
+const unsigned long rebootInterval = 24UL * 60 * 60 * 1000;
+
 // Function prototypes
 void connectToWiFi();
 void connectToMQTT();
 void triggerRelay(unsigned long duration = 3000);
 void callback(char* topic, byte* payload, unsigned int length);
+void reboot();
 
 // Setup
 void setup() {
+  Serial.begin(9600);
+  Serial.println("Booted");
+
   pinMode(relayPin, OUTPUT);
   digitalWrite(relayPin, LOW);
 
@@ -36,6 +44,7 @@ void setup() {
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
   connectToMQTT();
+  Serial.println("WiFi + MQTT connected");
 
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, HIGH);
@@ -45,6 +54,14 @@ void setup() {
 
 // Main loop
 void loop() {
+  // Reboot every 24h (wait for the relay to be released first)
+  if (millis() >= rebootInterval && relayOnTime == 0) {
+    Serial.print("Rebooting at millis=");
+    Serial.println(millis());
+    Serial.flush();
+    reboot();
+  }
+
   //Wifi reconnection
   if (WiFi.status() != WL_CONNECTED) {
     connectToWiFi();
@@ -61,6 +78,7 @@ void loop() {
   if (relayOnTime > 0 && millis() - relayOnTime >= 3000) {
     digitalWrite(relayPin, LOW);
     relayOnTime = 0;
+    Serial.println("Relay OFF");
   }
 }
 
@@ -72,13 +90,22 @@ void callback(char* topic, byte* payload, unsigned int length) {
     message += (char)payload[i];
   }
 
+  Serial.print("MQTT [");
+  Serial.print(topic);
+  Serial.print("] ");
+  Serial.println(message);
+
   StaticJsonDocument<512> doc;
-  if (deserializeJson(doc, message)) return;
+  if (deserializeJson(doc, message)) {
+    Serial.println("JSON parse error, ignored");
+    return;
+  }
 
   const char* desc = doc["desc"] | "";
   const char* cmd  = doc["cmd"]  | "";
 
   if (strcmp(desc, "Doorbell ringing") == 0 && strcmp(cmd, "event") == 0) {
+    Serial.println("Doorbell ringing -> Relay ON");
     triggerRelay();
   }
 }
@@ -103,6 +130,11 @@ void connectToMQTT() {
 }
 
 
+
+// Software reset (Uno WiFi Rev2 / ATmega4809)
+void reboot() {
+  _PROTECTED_WRITE(RSTCTRL.SWRR, RSTCTRL_SWRE_bm);
+}
 
 // Relay trigger
 void triggerRelay(unsigned long duration) {
