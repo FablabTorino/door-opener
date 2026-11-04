@@ -40,8 +40,8 @@ pipenv run pytest -v     # unit tests
 
 Run these after installing:
 
-1. `systemctl stop` the TelegramBot (or kill it). Within about 3.5 min: `⚠️ telegrambot offline …`. Restart it: `✅ telegrambot back online …`.
-2. Wait for the DoorBell's daily reboot, or press its reset button after it has announced the reboot. **No** alert should appear.
+1. Stop the TelegramBot. There is no systemd unit for it. Find its process with `pgrep -af main.py` and pick the one whose working directory is `TelegramBot` (`ls -l /proc/<PID>/cwd`). Then `kill <PID>`. Both bots run as `python main.py`, so don't use a `pkill main.py` that would stop both. Expect `⚠️ telegrambot offline …` after about 1.5 min (Last Will 60 s + 30 s grouping), and at most about 3.5 min. Restart it with `TelegramBot/telegrambot.sh`: `✅ telegrambot back online …`.
+2. Watch `mosquitto_sub -h 127.0.0.1 -v -t doors/status/doorbell-relay` around the DoorBell's daily reboot (it reboots after 24 h uptime). You should see `rebooting`, then `online`, and **no** alert. A quick press of the reset button must not alert either, because the device is back well within the 180 s timeout.
 3. Unplug a door. After 3 × syncrate + 30 s: `⚠️ <door> offline …`. Plug it back in: recovery message.
 4. `docker stop mosquitto`. After about 2 min: `⚠️ MQTT broker unreachable`. `docker start mosquitto`: `✅ MQTT broker back`.
 5. `sudo systemctl stop doormonitor`, then `mosquitto_sub -h 127.0.0.1 -t doors/monitor/state -C 1` shows `{"monitor": "offline"}`. Start it again afterwards.

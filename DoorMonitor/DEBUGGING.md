@@ -1,6 +1,6 @@
 # Debugging the door-opener on site
 
-Run these on the Pi. `mosquitto_sub` and `mosquitto_pub` are already installed there.
+Run these on the Pi. `mosquitto_sub` and `mosquitto_pub` are already installed there. The examples pipe into `jq`. If `jq` is missing, install it with `sudo apt install jq` (or drop `| jq`).
 
 ## 1. Is everything alive?
 
