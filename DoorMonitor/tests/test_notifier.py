@@ -116,3 +116,13 @@ def test_outbox_sends_each_message_once_on_success():
     o.deliver()
     o.deliver()
     assert sent == ["a", "b"]
+
+
+def test_send_telegram_does_not_log_token(caplog):
+    def post(url, data, timeout):
+        raise requests.ConnectionError("Max retries exceeded with url: /botSECRET123/sendMessage")
+
+    with caplog.at_level("ERROR"):
+        assert send_telegram("SECRET123", "42", "hi", post=post) is False
+    assert "Telegram sendMessage failed" in caplog.text
+    assert "SECRET123" not in caplog.text

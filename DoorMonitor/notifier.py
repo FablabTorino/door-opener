@@ -80,7 +80,10 @@ def send_telegram(token, chat_id, text, post=requests.post):
             return True
         logging.error("Telegram sendMessage failed: HTTP %s %s", r.status_code, r.text[:200])
     except requests.RequestException as e:
-        logging.error("Telegram sendMessage failed: %s", e)
+        msg = str(e)
+        if token:
+            msg = msg.replace(token, "<token>")  # exception text usually embeds the bot URL
+        logging.error("Telegram sendMessage failed: %s", msg)
     return False
 
 
