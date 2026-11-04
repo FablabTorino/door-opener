@@ -53,3 +53,8 @@ Warning:
 
 ## WindDocSync
 
+## DoorMonitor
+
+Watches every component over MQTT and alerts the Telegram group when something goes offline or comes back. On-site debugging commands are in [DoorMonitor/DEBUGGING.md](DoorMonitor/DEBUGGING.md).
+
+You can find it in [DoorMonitor](/DoorMonitor) folder.
