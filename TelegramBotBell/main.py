@@ -13,6 +13,7 @@ from dotenv import load_dotenv, find_dotenv
 import paho.mqtt.client as mqtt
 import logging
 import re
+import threading
 import time
 import datetime
 import requests
@@ -49,6 +50,9 @@ if ESPRFID_MQTT_TOPIC is None:
 logging.info(MQTT_BROKER_IP)
 
 mqttClient = mqtt.Client('TelegramBellBot')
+STATUS_TOPIC = 'doors/status/telegrambot-bell'
+HEARTBEAT_SECONDS = 60
+mqttClient.will_set(STATUS_TOPIC, 'offline')
 last_mqtt_message = time.time()
 
 # Telegram Bot setup
@@ -142,8 +146,17 @@ def on_mqtt_connect(client, userdata, flags, rc):
     if rc == 0:
         logging.info('[MQTT] connected, (re)subscribing to topics')
         client.subscribe(ESPRFID_MQTT_TOPIC + '/send')
+        client.publish(STATUS_TOPIC, 'online')
     else:
         logging.error('[MQTT] connection failed with code %s', rc)
+
+
+def heartbeat_loop():
+    """Tell DoorMonitor we're alive (see DoorMonitor/readme.md)."""
+    while True:
+        time.sleep(HEARTBEAT_SECONDS)
+        if mqttClient.is_connected():
+            mqttClient.publish(STATUS_TOPIC, 'online')
 
 
 def mqtt_setup():
@@ -164,6 +177,7 @@ def mqtt_setup():
         attempts -= 1
         time.sleep(0.1)
     mqttClient.loop_start()
+    threading.Thread(target=heartbeat_loop, daemon=True).start()
     logging.info('end MQTT setup')
 
 def main() -> None:
