@@ -10,6 +10,11 @@ const char* password = SECRET_PASS;
 // MQTT config
 const char* mqtt_server = "192.168.0.1";
 const char* mqtt_topic_door1 = "esp-rfid/send";
+const char* status_topic = "doors/status/doorbell-relay";  // watched by DoorMonitor
+
+// Heartbeat for DoorMonitor
+const unsigned long heartbeatInterval = 60UL * 1000;
+unsigned long lastHeartbeat = 0;
 
 
 // Network objects
@@ -59,6 +64,9 @@ void loop() {
     Serial.print("Rebooting at millis=");
     Serial.println(millis());
     Serial.flush();
+    client.publish(status_topic, "rebooting");
+    client.loop();
+    delay(200);
     reboot();
   }
 
@@ -72,7 +80,10 @@ void loop() {
   }
   client.loop();
 
-  
+  if (millis() - lastHeartbeat >= heartbeatInterval) {
+    client.publish(status_topic, "online");
+    lastHeartbeat = millis();
+  }
 
   // Turn off relay after 3 seconds
   if (relayOnTime > 0 && millis() - relayOnTime >= 3000) {
@@ -121,8 +132,11 @@ void connectToWiFi() {
 // MQTT connection
 void connectToMQTT() {
   while (!client.connected()) {
-    if (client.connect("ArduinoClient")) {
+    if (client.connect("ArduinoClient", status_topic, 0, false, "offline")) {
       client.subscribe(mqtt_topic_door1);
+      client.publish(status_topic, "online");
+      lastHeartbeat = millis();
+      Serial.println("MQTT connected");
     } else {
       delay(2000);
     }
