@@ -20,6 +20,8 @@ mosquitto_sub -h 127.0.0.1 -t esp-rfid/send | jq                   # pretty JSON
 mosquitto_sub -h 127.0.0.1 -v -t 'doors/status/+'                  # bot/Arduino heartbeats
 ```
 
+Restarting TelegramBot via `telegrambot.sh` runs `killall mosquitto_sub`, which ends any watch you have open.
+
 Every door should show a `"type":"heartbeat"` line every syncrate seconds.
 
 ## 3. Network or software?
@@ -29,6 +31,8 @@ ping <door IP>                 # IPs are in TelegramBot/.env (DOORx_IP)
 docker ps | grep mosquitto     # broker container running?
 systemctl status doormonitor
 ```
+
+Door names for `DOORx_IP`: DOOR1=EGEO18-INT, DOOR2=EGEO18-EXT, DOOR4=FABLAB-MAKEIT (DOOR3 is unused).
 
 A door that answers ping but sends no heartbeat usually has a problem with its MQTT settings, or its NTP time isn't set yet. Open its web UI.
 
@@ -62,7 +66,7 @@ mosquitto_pub -h 127.0.0.1 -t esp-rfid/cmd -m '{"cmd":"opendoor","doorip":"<DOOR
 
 ## 6. Symptom → what to check
 
-- **Card doesn't open the door.** Watch `esp-rfid/send` while swiping. No message means a reader or door problem (section 3). An `access` message with `isKnown:false` means the card isn't on the door; check WindDoc and `/sync`. `Disabled` or an expired membership is reported in the group.
+- **Card doesn't open the door.** Watch `esp-rfid/send` while swiping. No message means a reader or door problem (section 3). An `access` message with `"isKnown":"false"` (esp-rfid sends it as a string) means the card isn't on the door; check WindDoc and `/sync`. `Disabled` or an expired membership is reported in the group.
 - **Bell doesn't ring.** Watch `esp-rfid/send` while pressing the bell. No `Doorbell ringing` means a problem with the door/esp-rfid doorbell input. If the message appears but nothing rings, check `doorbell-relay` in the status snapshot and the Arduino serial log.
-- **Bot is silent in the group.** Check `telegrambot` / `telegrambot-bell` in the status snapshot, then the bot's `doorbot.log`.
+- **Bot is silent in the group.** Check `telegrambot` / `telegrambot-bell` in the status snapshot, then the bot's `doorbot.log`. The `up` status only proves the bot process and its MQTT link are alive, not Telegram polling, so check `doorbot.log` even when it shows `up`.
 - **A door shows `down`.** Ping it (section 3), then look for its heartbeat (section 2).
