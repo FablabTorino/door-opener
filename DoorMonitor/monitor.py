@@ -65,20 +65,24 @@ def main():
             broker.on_disconnect(time.time())
 
     def on_message(client, userdata, msg):
-        if msg.retain:
-            return  # old news; only live messages prove a device is alive
-        hit = classify(msg.topic, msg.payload, send_topic)
-        if hit is None:
-            return
-        event, name = hit
-        with lock:
-            t = time.time()
-            if event == "seen":
-                incoming.extend(tracker.seen(name, t))
-            elif event == "offline":
-                tracker.offline(name, t)
-            else:
-                tracker.rebooting(name, t)
+        try:
+            if msg.retain:
+                return  # old news; only live messages prove a device is alive
+            hit = classify(msg.topic, msg.payload, send_topic)
+            if hit is None:
+                return
+            event, name = hit
+            with lock:
+                t = time.time()
+                if event == "seen":
+                    incoming.extend(tracker.seen(name, t))
+                elif event == "offline":
+                    tracker.offline(name, t)
+                else:
+                    tracker.rebooting(name, t)
+        except Exception:
+            # never let one bad message kill paho's network thread
+            logging.exception("Error handling message on %s", msg.topic)
 
     client = mqtt.Client("DoorMonitor")
     client.will_set(STATE_TOPIC, json.dumps({"monitor": "offline"}), qos=1, retain=True)

@@ -47,3 +47,12 @@ def test_esprfid_bad_or_non_object_json_ignored():
 
 def test_other_topics_ignored():
     assert classify("esp-rfid/cmd", b'{"hostname": "EGEO18-INT"}', SEND) is None
+
+
+def test_esprfid_non_string_hostname_ignored():
+    for bad in ('[1]', '{"a": 1}', '5', 'true'):
+        assert classify(SEND, ('{"hostname": %s}' % bad).encode(), SEND) is None
+
+
+def test_esprfid_deeply_nested_json_ignored():
+    assert classify(SEND, b"[" * 100000, SEND) is None

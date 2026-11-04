@@ -14,8 +14,8 @@ def classify(topic, payload, send_topic):
     if topic == send_topic:
         try:
             data = json.loads(payload)
-        except ValueError:
+        except (ValueError, RecursionError):
             return None
         hostname = data.get("hostname") if isinstance(data, dict) else None
-        return ("seen", hostname) if hostname else None
+        return ("seen", hostname) if isinstance(hostname, str) and hostname else None
     return None
