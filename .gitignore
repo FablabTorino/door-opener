@@ -9,3 +9,5 @@ TelegramBot/doorbot.log
 TelegramBot/mosquitto_esp-rfid_cmd_sub
 TelegramBot/mosquitto_esp-rfid_send_sub
 DoorBell/Arduino_door/arduino_secrets.h
+__pycache__/
+.pytest_cache/
