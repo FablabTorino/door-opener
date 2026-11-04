@@ -10,11 +10,11 @@ class Device:
 
 # esp-rfid doors publish {"type":"heartbeat",...} on esp-rfid/send every
 # "syncrate" seconds (door web UI -> MQTT settings). Timeout = 3 x syncrate.
-# Read each door's real value on site and update this table (see readme.md).
+# Values measured on the broker on 2026-11-04 (heartbeats ~181 s apart).
 DOOR_SYNCRATE = {
-    "EGEO18-INT": 60,
-    "EGEO18-EXT": 60,
-    "FABLAB-MAKEIT": 60,
+    "EGEO18-INT": 180,
+    "EGEO18-EXT": 180,
+    "FABLAB-MAKEIT": 180,
 }
 
 # Bots and the DoorBell Arduino publish "online" on doors/status/<name> every 60 s.
