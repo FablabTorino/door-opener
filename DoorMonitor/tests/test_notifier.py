@@ -21,6 +21,18 @@ def test_format_down_with_last_seen():
     assert format_down(t) == f"⚠️ door offline (last seen {clock(1000)}, 3 min ago)"
 
 
+def test_format_down_with_wall_offset():
+    t = Transition("door", DOWN, 1180, 1000)
+    assert format_down(t, wall_offset=5000) == f"⚠️ door offline (last seen {clock(6000)}, 3 min ago)"
+
+
+def test_buffer_push_passes_wall_offset_to_formatter():
+    b = AlertBuffer(window=30, group_min=3)
+    t = down("a", 1000)
+    b.push([t], 1000)
+    assert b.push([], 1030, wall_offset=7200) == [f"⚠️ a offline (last seen {clock(800 + 7200)}, 3 min ago)"]
+
+
 def test_format_down_never_seen():
     t = Transition("door", DOWN, 1180, None)
     assert format_down(t) == "⚠️ door not seen since monitor (re)connected"

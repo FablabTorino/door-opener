@@ -26,10 +26,10 @@ def clock(ts):
     return time.strftime("%H:%M", time.localtime(ts))
 
 
-def format_down(t):
+def format_down(t, wall_offset=0.0):
     if t.last_seen is None:
         return f"⚠️ {t.name} not seen since monitor (re)connected"
-    return f"⚠️ {t.name} offline (last seen {clock(t.last_seen)}, {duration(t.at - t.last_seen)} ago)"
+    return f"⚠️ {t.name} offline (last seen {clock(t.last_seen + wall_offset)}, {duration(t.at - t.last_seen)} ago)"
 
 
 def format_up(t):
@@ -48,7 +48,7 @@ class AlertBuffer:
         self._group_min = group_min
         self._pending = []
 
-    def push(self, transitions, now):
+    def push(self, transitions, now, wall_offset=0.0):
         """Feed new transitions (may be empty); returns messages ready to send."""
         out = []
         for t in transitions:
@@ -60,15 +60,15 @@ class AlertBuffer:
                 self._pending.remove(blip)  # down and back up before we said anything
             else:
                 out.append(format_up(t))
-        return out + self._due(now)
+        return out + self._due(now, wall_offset)
 
-    def _due(self, now):
+    def _due(self, now, wall_offset=0.0):
         if not self._pending or now - self._pending[0].at < self._window:
             return []
         downs, self._pending = self._pending, []
         if len(downs) >= self._group_min:
             return [format_group(downs)]
-        return [format_down(t) for t in downs]
+        return [format_down(t, wall_offset) for t in downs]
 
 
 def send_telegram(token, chat_id, text, post=requests.post):

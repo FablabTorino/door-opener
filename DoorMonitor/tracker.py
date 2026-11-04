@@ -1,4 +1,4 @@
-"""Pure liveness state machines. No I/O: every call takes `now` (epoch seconds)."""
+"""Pure liveness state machines. No I/O: every call takes `now` (any monotonic seconds)."""
 from dataclasses import dataclass
 from typing import Optional
 
@@ -21,16 +21,20 @@ class Tracker:
         self._timeouts = {d.name: d.timeout for d in devices}
         self._offline_grace = offline_grace
         self._reboot_window = reboot_window
+        self._state = {n: UNKNOWN for n in self._timeouts}
+        self._last_seen, self._down_since, self._rebooting, self._deadline = {}, {}, {}, {}
         self.reset(now)
 
     def reset(self, now):
-        """Forget everything: all devices UNKNOWN with a fresh deadline."""
-        names = self._timeouts
-        self._state = {n: UNKNOWN for n in names}
-        self._last_seen = {n: None for n in names}
-        self._down_since = {n: None for n in names}
-        self._rebooting = {n: False for n in names}
-        self._deadline = {n: now + t for n, t in names.items()}
+        """Forget everything except DOWN devices (already announced; they stay DOWN)."""
+        for n, timeout in self._timeouts.items():
+            if self._state[n] == DOWN:
+                continue
+            self._state[n] = UNKNOWN
+            self._last_seen[n] = None
+            self._down_since[n] = None
+            self._rebooting[n] = False
+            self._deadline[n] = now + timeout
 
     def seen(self, name, now):
         """A sign of life. Returns [Transition] if the device was DOWN."""
@@ -67,13 +71,14 @@ class Tracker:
                 out.append(Transition(name, DOWN, now, self._last_seen[name]))
         return out
 
-    def snapshot(self, now):
+    def snapshot(self, now, wall_offset=0.0):
+        """wall_offset converts the monotonic clock to wall time (wall = now + offset)."""
         return {
-            "updated": int(now),
+            "updated": int(now + wall_offset),
             "devices": {
                 n: {
                     "state": self._state[n],
-                    "last_seen": None if self._last_seen[n] is None else int(self._last_seen[n]),
+                    "last_seen": None if self._last_seen[n] is None else int(self._last_seen[n] + wall_offset),
                 }
                 for n in self._timeouts
             },

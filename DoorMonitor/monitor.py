@@ -28,6 +28,11 @@ def env(name):
     return value
 
 
+def wall_offset():
+    """wall = monotonic + offset. Recomputed on use so NTP corrections are followed."""
+    return time.time() - time.monotonic()
+
+
 def main():
     logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
     load_dotenv(join(dirname(abspath(__file__)), ".env"))  # real env vars take precedence
@@ -37,7 +42,7 @@ def main():
     token = env("TOKEN_TBOT")
     chat_id = env("CHAT_ID_TBOT")
 
-    now = time.time()
+    now = time.monotonic()
     lock = threading.Lock()  # guards tracker, broker, incoming
     tracker = Tracker(DEVICES, now, OFFLINE_GRACE, REBOOT_WINDOW)
     broker = BrokerWatch(now, BROKER_TIMEOUT)
@@ -53,7 +58,7 @@ def main():
         client.subscribe(send_topic)
         client.subscribe(STATUS_PREFIX + "+")
         with lock:
-            t = time.time()
+            t = time.monotonic()
             if broker.on_connect(t) == UP:
                 outbox.add([BROKER_UP_TEXT])
             tracker.reset(t)
@@ -62,7 +67,7 @@ def main():
     def on_disconnect(client, userdata, rc):
         logging.warning("Disconnected from broker, rc=%s", rc)
         with lock:
-            broker.on_disconnect(time.time())
+            broker.on_disconnect(time.monotonic())
 
     def on_message(client, userdata, msg):
         try:
@@ -73,7 +78,7 @@ def main():
                 return
             event, name = hit
             with lock:
-                t = time.time()
+                t = time.monotonic()
                 if event == "seen":
                     incoming.extend(tracker.seen(name, t))
                 elif event == "offline":
@@ -93,12 +98,12 @@ def main():
     client.connect_async(broker_ip, broker_port)
     client.loop_start()
 
-    last_snapshot = 0.0
+    last_snapshot = float("-inf")  # monotonic origin is arbitrary
     while True:
         time.sleep(TICK_SECONDS)
         snapshot = None
         with lock:
-            t = time.time()
+            t = time.monotonic()
             if broker.tick(t) == DOWN:
                 outbox.add([BROKER_DOWN_TEXT])
             if broker.connected:
@@ -106,9 +111,9 @@ def main():
                 incoming.clear()
                 for tr in transitions:
                     logging.info("%s -> %s", tr.name, tr.new_state)
-                outbox.add(alerts.push(transitions, t))
+                outbox.add(alerts.push(transitions, t, wall_offset()))
                 if transitions or t - last_snapshot >= SNAPSHOT_EVERY:
-                    snapshot = json.dumps(tracker.snapshot(t))
+                    snapshot = json.dumps(tracker.snapshot(t, wall_offset()))
                     last_snapshot = t
         if snapshot is not None:
             client.publish(STATE_TOPIC, snapshot, qos=1, retain=True)

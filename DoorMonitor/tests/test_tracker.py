@@ -80,13 +80,44 @@ def test_unknown_device_names_are_ignored():
     assert "other" not in t.snapshot(1100)["devices"]
 
 
-def test_reset_returns_everything_to_unknown():
+def test_reset_returns_non_down_devices_to_unknown():
     t = make()
     t.seen("door", 1100)
     t.reset(1200)
     assert t.snapshot(1200)["devices"]["door"] == {"state": UNKNOWN, "last_seen": None}
     assert t.tick(1379) == []
     assert t.tick(1380) == [Transition("door", DOWN, 1380, None)]
+
+
+def test_reset_keeps_down_device_down_and_recovery_reports_original_down_since():
+    t = make()
+    t.seen("door", 1100)
+    t.tick(1280)  # DOWN, down_since 1280
+    t.reset(1300)
+    assert t.snapshot(1300)["devices"]["door"] == {"state": DOWN, "last_seen": 1100}
+    assert t.seen("door", 1400) == [Transition("door", UP, 1400, 1400, 1280)]
+
+
+def test_tick_after_reset_does_not_rereport_down_device():
+    t = make()
+    t.seen("door", 1100)
+    t.tick(1280)
+    t.reset(1300)
+    assert t.tick(1300 + 180) == []
+    assert t.tick(5000) == []
+
+
+def test_snapshot_applies_wall_offset():
+    t = make()
+    t.seen("door", 1010)
+    snap = t.snapshot(1020, wall_offset=1_000_000.5)
+    assert snap["updated"] == 1_001_020
+    assert snap["devices"]["door"]["last_seen"] == 1_001_010
+
+
+def test_snapshot_offset_keeps_never_seen_as_none():
+    t = make()
+    assert t.snapshot(1020, wall_offset=500)["devices"]["door"]["last_seen"] is None
 
 
 def test_broker_alert_after_timeout_when_never_connected():
