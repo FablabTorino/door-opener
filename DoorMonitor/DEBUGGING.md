@@ -28,7 +28,7 @@ Every door should show a `"type":"heartbeat"` line every syncrate seconds.
 
 ```bash
 ping <door IP>                 # IPs are in TelegramBot/.env (DOORx_IP)
-docker ps | grep mosquitto     # broker container running?
+systemctl status mosquitto     # broker running? (native service, not Docker)
 systemctl status doormonitor
 ```
 
@@ -44,7 +44,7 @@ A door that answers ping but sends no heartbeat usually has a problem with its M
 | TelegramBotBell | `TelegramBotBell/doorbot.log` |
 | Raw door traffic (written by `telegrambot.sh`) | `TelegramBot/mosquitto_esp-rfid_cmd_sub`, `TelegramBot/mosquitto_esp-rfid_send_sub` |
 | DoorMonitor | `journalctl -u doormonitor -f` |
-| Broker | `docker logs mosquitto --tail 100` |
+| Broker | `tail -n 100 /var/log/mosquitto/mosquitto.log` |
 | DoorBell Arduino | USB serial monitor at 9600 baud |
 
 ## 5. Test actions
