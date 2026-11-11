@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=simple
 User=pi
 WorkingDirectory=/home/pi/door-opener/DoorMonitor
-ExecStart=/home/pi/.local/bin/pipenv run python monitor.py
+ExecStart=/usr/local/bin/pipenv run python monitor.py
 Restart=always
 RestartSec=10
 Environment=PYTHONUNBUFFERED=1
