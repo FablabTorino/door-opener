@@ -1,6 +1,6 @@
 [Unit]
 Description=Door-opener monitor (alerts the Telegram group when a component goes offline)
-After=network-online.target docker.service
+After=network-online.target mosquitto.service
 Wants=network-online.target
 
 [Service]
