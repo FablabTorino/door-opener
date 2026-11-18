@@ -28,7 +28,15 @@ Runs on the Pi's stock Python 3.9 (Raspbian 11). `Pipfile.lock` was generated th
    journalctl -u doormonitor -f
    ```
 
-5. Deploy the updated `TelegramBot`, `TelegramBotBell` and the DoorBell Arduino sketch. They now send heartbeats.
+5. Deploy the updated `TelegramBot`, `TelegramBotBell` and the DoorBell Arduino sketch. They now send heartbeats. Run the bots and the esp-rfid traffic log as systemd units, so they come back after a reboot or a crash. First stop the copies started by hand (`telegrambot.sh` and `nohup … main.py`), otherwise two instances of each bot run at once:
+
+   ```
+   sudo cp ../TelegramBot/telegrambot.service ../TelegramBot/esp-rfid-log.service ../TelegramBotBell/telegrambot-bell.service /etc/systemd/system/
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now telegrambot telegrambot-bell esp-rfid-log
+   ```
+
+   The DoorBell also publishes a retained diagnostics message (reset cause, uptime, drops since boot, last drop reason, RSSI, NINA firmware): `mosquitto_sub -h 127.0.0.1 -v -t doors/diag/doorbell-relay`.
 
 The service connects with MQTT client id `DoorMonitor`. Stop it (`sudo systemctl stop doormonitor`) before running `monitor.py` by hand: two instances would keep kicking each other off the broker.
 
@@ -44,7 +52,7 @@ pipenv run pytest -v     # unit tests
 
 Run these after installing:
 
-1. Stop the TelegramBot. There is no systemd unit for it. Find its process with `pgrep -af main.py` and pick the one whose working directory is `TelegramBot` (`ls -l /proc/<PID>/cwd`). Then `kill <PID>`. Both bots run as `python main.py`, so don't use a `pkill main.py` that would stop both. Expect `⚠️ telegrambot offline …` after about 1.5 min (Last Will 60 s + 30 s grouping), and at most about 3.5 min. Restart it with `TelegramBot/telegrambot.sh`: `✅ telegrambot back online …`.
+1. `sudo systemctl stop telegrambot`. Expect `⚠️ telegrambot offline …` after about 1.5 min (Last Will 60 s + 30 s grouping), and at most about 3.5 min. `sudo systemctl start telegrambot`: `✅ telegrambot back online …`.
 2. Watch `mosquitto_sub -h 127.0.0.1 -v -t doors/status/doorbell-relay` around the DoorBell's daily reboot (it reboots after 24 h uptime). You should see `rebooting`, then `online`, and **no** alert. A quick press of the reset button must not alert either, because the device is back well within the 180 s timeout.
 3. Unplug a door. After 3 × syncrate + 30 s: `⚠️ <door> offline …`. Plug it back in: recovery message.
 4. `sudo systemctl stop mosquitto`. After about 2 min: `⚠️ MQTT broker unreachable`. `sudo systemctl start mosquitto`: `✅ MQTT broker back`, and no device alerts in the following ~4 min (bots reconnect with up to 120 s backoff).

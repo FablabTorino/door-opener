@@ -1,0 +1,17 @@
+# Appends raw esp-rfid MQTT traffic to the two files telegrambot.sh used to write.
+# If either mosquitto_sub exits, the unit fails and systemd restarts both.
+[Unit]
+Description=Door-opener esp-rfid MQTT traffic log
+After=network-online.target mosquitto.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/door-opener/TelegramBot
+ExecStart=/bin/bash -c 'mosquitto_sub -h 127.0.0.1 -t esp-rfid/cmd >> ./mosquitto_esp-rfid_cmd_sub & mosquitto_sub -h 127.0.0.1 -t esp-rfid/send >> ./mosquitto_esp-rfid_send_sub & wait -n; exit 1'
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

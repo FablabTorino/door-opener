@@ -1,0 +1,16 @@
+[Unit]
+Description=Door-opener doorbell bot (posts doorbell rings to the Telegram group)
+After=network-online.target mosquitto.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/door-opener/TelegramBotBell
+ExecStart=/usr/local/bin/pipenv run python main.py
+Restart=always
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
