@@ -20,8 +20,6 @@ mosquitto_sub -h 127.0.0.1 -t esp-rfid/send | jq                   # pretty JSON
 mosquitto_sub -h 127.0.0.1 -v -t 'doors/status/+'                  # bot/Arduino heartbeats
 ```
 
-Restarting TelegramBot via `telegrambot.sh` runs `killall mosquitto_sub`, which ends any watch you have open.
-
 Every door should show a `"type":"heartbeat"` line every syncrate seconds.
 
 ## 3. Network or software?
@@ -29,12 +27,32 @@ Every door should show a `"type":"heartbeat"` line every syncrate seconds.
 ```bash
 ping <door IP>                 # IPs are in TelegramBot/.env (DOORx_IP)
 systemctl status mosquitto     # broker running? (native service, not Docker)
-systemctl status doormonitor
+systemctl status doormonitor telegrambot telegrambot-bell esp-rfid-log
+sudo systemctl restart <unit>  # all of them also restart by themselves after a crash or reboot
 ```
 
 Door names for `DOORx_IP`: DOOR1=EGEO18-INT, DOOR2=EGEO18-EXT, DOOR4=FABLAB-MAKEIT (DOOR3 is unused).
 
 A door that answers ping but sends no heartbeat usually has a problem with its MQTT settings, or its NTP time isn't set yet. Open its web UI.
+
+### DoorBell health
+
+The DoorBell publishes a retained diagnostics message on every connect and every minute:
+
+```bash
+mosquitto_sub -h 127.0.0.1 -t doors/diag/doorbell-relay -C 1 | jq
+```
+
+| Field | Meaning |
+|---|---|
+| `reset` | Why it last restarted: `watchdog` (it froze and was reset), `software:daily`, `software:disconnected`, `power-on`, `reset-button`, `brownout`, `upload` |
+| `up` | Seconds since that restart |
+| `mqtt_connects`, `wifi_connects` | Connects since boot. More than 1 means it dropped and reconnected |
+| `last_drop_mqtt`, `last_drop_wifi` | PubSubClient state and WiFi status when the last drop was noticed |
+| `rssi` | WiFi signal in dBm. Around -45 is good; worse than about -75 is weak |
+| `fw` | NINA WiFi module firmware |
+
+The broker log shows each of its drops: `sudo cat /var/log/mosquitto/mosquitto.log | grep ArduinoClient`.
 
 ## 4. Logs
 
@@ -42,9 +60,10 @@ A door that answers ping but sends no heartbeat usually has a problem with its M
 |---|---|
 | TelegramBot | `TelegramBot/doorbot.log` |
 | TelegramBotBell | `TelegramBotBell/doorbot.log` |
-| Raw door traffic (written by `telegrambot.sh`) | `TelegramBot/mosquitto_esp-rfid_cmd_sub`, `TelegramBot/mosquitto_esp-rfid_send_sub` |
+| Raw door traffic (written by the `esp-rfid-log` unit) | `TelegramBot/mosquitto_esp-rfid_cmd_sub`, `TelegramBot/mosquitto_esp-rfid_send_sub` |
 | DoorMonitor | `journalctl -u doormonitor -f` |
-| Broker | `tail -n 100 /var/log/mosquitto/mosquitto.log` |
+| Bot crashes and restarts | `journalctl -u telegrambot -u telegrambot-bell` |
+| Broker | `sudo cat /var/log/mosquitto/mosquitto.log \| tail -n 100` |
 | DoorBell Arduino | USB serial monitor at 9600 baud |
 
 ## 5. Test actions
@@ -67,6 +86,6 @@ mosquitto_pub -h 127.0.0.1 -t esp-rfid/cmd -m '{"cmd":"opendoor","doorip":"<DOOR
 ## 6. Symptom → what to check
 
 - **Card doesn't open the door.** Watch `esp-rfid/send` while swiping. No message means a reader or door problem (section 3). An `access` message with `"isKnown":"false"` (esp-rfid sends it as a string) means the card isn't on the door; check WindDoc and `/sync`. `Disabled` or an expired membership is reported in the group.
-- **Bell doesn't ring.** Watch `esp-rfid/send` while pressing the bell. No `Doorbell ringing` means a problem with the door/esp-rfid doorbell input. If the message appears but nothing rings, check `doorbell-relay` in the status snapshot and the Arduino serial log.
+- **Bell doesn't ring.** Watch `esp-rfid/send` while pressing the bell. No `Doorbell ringing` means a problem with the door/esp-rfid doorbell input. If the message appears but nothing rings, check `doorbell-relay` in the status snapshot, then its diagnostics (section 3) and the Arduino serial log.
 - **Bot is silent in the group.** Check `telegrambot` / `telegrambot-bell` in the status snapshot, then the bot's `doorbot.log`. The `up` status only proves the bot process and its MQTT link are alive, not Telegram polling, so check `doorbot.log` even when it shows `up`.
 - **A door shows `down`.** Ping it (section 3), then look for its heartbeat (section 2).
